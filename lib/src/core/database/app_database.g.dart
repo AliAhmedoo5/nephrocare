@@ -15,7 +15,8 @@ class $PatientsTable extends Patients with TableInfo<$PatientsTable, Patient> {
     aliasedName,
     false,
     type: DriftSqlType.string,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
+    clientDefault: () => _uuid.v4(),
   );
   static const VerificationMeta _nameMeta = const VerificationMeta('name');
   @override
@@ -58,6 +59,17 @@ class $PatientsTable extends Patients with TableInfo<$PatientsTable, Patient> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _fistulaArmLocationMeta =
+      const VerificationMeta('fistulaArmLocation');
+  @override
+  late final GeneratedColumn<String> fistulaArmLocation =
+      GeneratedColumn<String>(
+        'fistula_arm_location',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _isCaregiverMirrorMeta = const VerificationMeta(
     'isCaregiverMirror',
   );
@@ -83,7 +95,7 @@ class $PatientsTable extends Patients with TableInfo<$PatientsTable, Patient> {
     false,
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
-    defaultValue: currentDateAndTime,
+    clientDefault: () => DateTime.now().toUtc(),
   );
   static const VerificationMeta _updatedAtMeta = const VerificationMeta(
     'updatedAt',
@@ -95,7 +107,7 @@ class $PatientsTable extends Patients with TableInfo<$PatientsTable, Patient> {
     false,
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
-    defaultValue: currentDateAndTime,
+    clientDefault: () => DateTime.now().toUtc(),
   );
   @override
   List<GeneratedColumn> get $columns => [
@@ -104,6 +116,7 @@ class $PatientsTable extends Patients with TableInfo<$PatientsTable, Patient> {
     diagnosis,
     prescribedDryWeightKg,
     dailyFluidAllowanceMl,
+    fistulaArmLocation,
     isCaregiverMirror,
     createdAt,
     updatedAt,
@@ -122,8 +135,6 @@ class $PatientsTable extends Patients with TableInfo<$PatientsTable, Patient> {
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    } else if (isInserting) {
-      context.missing(_idMeta);
     }
     if (data.containsKey('name')) {
       context.handle(
@@ -156,6 +167,15 @@ class $PatientsTable extends Patients with TableInfo<$PatientsTable, Patient> {
         dailyFluidAllowanceMl.isAcceptableOrUnknown(
           data['daily_fluid_allowance_ml']!,
           _dailyFluidAllowanceMlMeta,
+        ),
+      );
+    }
+    if (data.containsKey('fistula_arm_location')) {
+      context.handle(
+        _fistulaArmLocationMeta,
+        fistulaArmLocation.isAcceptableOrUnknown(
+          data['fistula_arm_location']!,
+          _fistulaArmLocationMeta,
         ),
       );
     }
@@ -209,6 +229,10 @@ class $PatientsTable extends Patients with TableInfo<$PatientsTable, Patient> {
         DriftSqlType.int,
         data['${effectivePrefix}daily_fluid_allowance_ml'],
       ),
+      fistulaArmLocation: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}fistula_arm_location'],
+      ),
       isCaregiverMirror: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_caregiver_mirror'],
@@ -236,6 +260,10 @@ class Patient extends DataClass implements Insertable<Patient> {
   final String diagnosis;
   final double? prescribedDryWeightKg;
   final int? dailyFluidAllowanceMl;
+
+  /// Designated arm bearing vascular access (e.g., 'leftArm', 'rightArm', 'none').
+  /// Used to enforce the Fistula Arm Safety Flag per ADR-0003.
+  final String? fistulaArmLocation;
   final bool isCaregiverMirror;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -245,6 +273,7 @@ class Patient extends DataClass implements Insertable<Patient> {
     required this.diagnosis,
     this.prescribedDryWeightKg,
     this.dailyFluidAllowanceMl,
+    this.fistulaArmLocation,
     required this.isCaregiverMirror,
     required this.createdAt,
     required this.updatedAt,
@@ -260,6 +289,9 @@ class Patient extends DataClass implements Insertable<Patient> {
     }
     if (!nullToAbsent || dailyFluidAllowanceMl != null) {
       map['daily_fluid_allowance_ml'] = Variable<int>(dailyFluidAllowanceMl);
+    }
+    if (!nullToAbsent || fistulaArmLocation != null) {
+      map['fistula_arm_location'] = Variable<String>(fistulaArmLocation);
     }
     map['is_caregiver_mirror'] = Variable<bool>(isCaregiverMirror);
     map['created_at'] = Variable<DateTime>(createdAt);
@@ -278,6 +310,9 @@ class Patient extends DataClass implements Insertable<Patient> {
       dailyFluidAllowanceMl: dailyFluidAllowanceMl == null && nullToAbsent
           ? const Value.absent()
           : Value(dailyFluidAllowanceMl),
+      fistulaArmLocation: fistulaArmLocation == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fistulaArmLocation),
       isCaregiverMirror: Value(isCaregiverMirror),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
@@ -299,6 +334,9 @@ class Patient extends DataClass implements Insertable<Patient> {
       dailyFluidAllowanceMl: serializer.fromJson<int?>(
         json['dailyFluidAllowanceMl'],
       ),
+      fistulaArmLocation: serializer.fromJson<String?>(
+        json['fistulaArmLocation'],
+      ),
       isCaregiverMirror: serializer.fromJson<bool>(json['isCaregiverMirror']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
@@ -315,6 +353,7 @@ class Patient extends DataClass implements Insertable<Patient> {
         prescribedDryWeightKg,
       ),
       'dailyFluidAllowanceMl': serializer.toJson<int?>(dailyFluidAllowanceMl),
+      'fistulaArmLocation': serializer.toJson<String?>(fistulaArmLocation),
       'isCaregiverMirror': serializer.toJson<bool>(isCaregiverMirror),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
@@ -327,6 +366,7 @@ class Patient extends DataClass implements Insertable<Patient> {
     String? diagnosis,
     Value<double?> prescribedDryWeightKg = const Value.absent(),
     Value<int?> dailyFluidAllowanceMl = const Value.absent(),
+    Value<String?> fistulaArmLocation = const Value.absent(),
     bool? isCaregiverMirror,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -340,6 +380,9 @@ class Patient extends DataClass implements Insertable<Patient> {
     dailyFluidAllowanceMl: dailyFluidAllowanceMl.present
         ? dailyFluidAllowanceMl.value
         : this.dailyFluidAllowanceMl,
+    fistulaArmLocation: fistulaArmLocation.present
+        ? fistulaArmLocation.value
+        : this.fistulaArmLocation,
     isCaregiverMirror: isCaregiverMirror ?? this.isCaregiverMirror,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -355,6 +398,9 @@ class Patient extends DataClass implements Insertable<Patient> {
       dailyFluidAllowanceMl: data.dailyFluidAllowanceMl.present
           ? data.dailyFluidAllowanceMl.value
           : this.dailyFluidAllowanceMl,
+      fistulaArmLocation: data.fistulaArmLocation.present
+          ? data.fistulaArmLocation.value
+          : this.fistulaArmLocation,
       isCaregiverMirror: data.isCaregiverMirror.present
           ? data.isCaregiverMirror.value
           : this.isCaregiverMirror,
@@ -371,6 +417,7 @@ class Patient extends DataClass implements Insertable<Patient> {
           ..write('diagnosis: $diagnosis, ')
           ..write('prescribedDryWeightKg: $prescribedDryWeightKg, ')
           ..write('dailyFluidAllowanceMl: $dailyFluidAllowanceMl, ')
+          ..write('fistulaArmLocation: $fistulaArmLocation, ')
           ..write('isCaregiverMirror: $isCaregiverMirror, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
@@ -385,6 +432,7 @@ class Patient extends DataClass implements Insertable<Patient> {
     diagnosis,
     prescribedDryWeightKg,
     dailyFluidAllowanceMl,
+    fistulaArmLocation,
     isCaregiverMirror,
     createdAt,
     updatedAt,
@@ -398,6 +446,7 @@ class Patient extends DataClass implements Insertable<Patient> {
           other.diagnosis == this.diagnosis &&
           other.prescribedDryWeightKg == this.prescribedDryWeightKg &&
           other.dailyFluidAllowanceMl == this.dailyFluidAllowanceMl &&
+          other.fistulaArmLocation == this.fistulaArmLocation &&
           other.isCaregiverMirror == this.isCaregiverMirror &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
@@ -409,6 +458,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
   final Value<String> diagnosis;
   final Value<double?> prescribedDryWeightKg;
   final Value<int?> dailyFluidAllowanceMl;
+  final Value<String?> fistulaArmLocation;
   final Value<bool> isCaregiverMirror;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
@@ -419,23 +469,24 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
     this.diagnosis = const Value.absent(),
     this.prescribedDryWeightKg = const Value.absent(),
     this.dailyFluidAllowanceMl = const Value.absent(),
+    this.fistulaArmLocation = const Value.absent(),
     this.isCaregiverMirror = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PatientsCompanion.insert({
-    required String id,
+    this.id = const Value.absent(),
     required String name,
     required String diagnosis,
     this.prescribedDryWeightKg = const Value.absent(),
     this.dailyFluidAllowanceMl = const Value.absent(),
+    this.fistulaArmLocation = const Value.absent(),
     this.isCaregiverMirror = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
-  }) : id = Value(id),
-       name = Value(name),
+  }) : name = Value(name),
        diagnosis = Value(diagnosis);
   static Insertable<Patient> custom({
     Expression<String>? id,
@@ -443,6 +494,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
     Expression<String>? diagnosis,
     Expression<double>? prescribedDryWeightKg,
     Expression<int>? dailyFluidAllowanceMl,
+    Expression<String>? fistulaArmLocation,
     Expression<bool>? isCaregiverMirror,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
@@ -456,6 +508,8 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
         'prescribed_dry_weight_kg': prescribedDryWeightKg,
       if (dailyFluidAllowanceMl != null)
         'daily_fluid_allowance_ml': dailyFluidAllowanceMl,
+      if (fistulaArmLocation != null)
+        'fistula_arm_location': fistulaArmLocation,
       if (isCaregiverMirror != null) 'is_caregiver_mirror': isCaregiverMirror,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -469,6 +523,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
     Value<String>? diagnosis,
     Value<double?>? prescribedDryWeightKg,
     Value<int?>? dailyFluidAllowanceMl,
+    Value<String?>? fistulaArmLocation,
     Value<bool>? isCaregiverMirror,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
@@ -482,6 +537,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
           prescribedDryWeightKg ?? this.prescribedDryWeightKg,
       dailyFluidAllowanceMl:
           dailyFluidAllowanceMl ?? this.dailyFluidAllowanceMl,
+      fistulaArmLocation: fistulaArmLocation ?? this.fistulaArmLocation,
       isCaregiverMirror: isCaregiverMirror ?? this.isCaregiverMirror,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -511,6 +567,9 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
         dailyFluidAllowanceMl.value,
       );
     }
+    if (fistulaArmLocation.present) {
+      map['fistula_arm_location'] = Variable<String>(fistulaArmLocation.value);
+    }
     if (isCaregiverMirror.present) {
       map['is_caregiver_mirror'] = Variable<bool>(isCaregiverMirror.value);
     }
@@ -534,6 +593,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
           ..write('diagnosis: $diagnosis, ')
           ..write('prescribedDryWeightKg: $prescribedDryWeightKg, ')
           ..write('dailyFluidAllowanceMl: $dailyFluidAllowanceMl, ')
+          ..write('fistulaArmLocation: $fistulaArmLocation, ')
           ..write('isCaregiverMirror: $isCaregiverMirror, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -556,7 +616,8 @@ class $DialysisSessionsTable extends DialysisSessions
     aliasedName,
     false,
     type: DriftSqlType.string,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
+    clientDefault: () => _uuid.v4(),
   );
   static const VerificationMeta _patientIdMeta = const VerificationMeta(
     'patientId',
@@ -649,16 +710,6 @@ class $DialysisSessionsTable extends DialysisSessions
         type: DriftSqlType.int,
         requiredDuringInsert: false,
       );
-  static const VerificationMeta _targetFluidRemovalMlMeta =
-      const VerificationMeta('targetFluidRemovalMl');
-  @override
-  late final GeneratedColumn<int> targetFluidRemovalMl = GeneratedColumn<int>(
-    'target_fluid_removal_ml',
-    aliasedName,
-    true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-  );
   static const VerificationMeta _actualFluidRemovedMlMeta =
       const VerificationMeta('actualFluidRemovedMl');
   @override
@@ -699,7 +750,7 @@ class $DialysisSessionsTable extends DialysisSessions
     false,
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
-    defaultValue: currentDateAndTime,
+    clientDefault: () => DateTime.now().toUtc(),
   );
   static const VerificationMeta _updatedAtMeta = const VerificationMeta(
     'updatedAt',
@@ -711,7 +762,7 @@ class $DialysisSessionsTable extends DialysisSessions
     false,
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
-    defaultValue: currentDateAndTime,
+    clientDefault: () => DateTime.now().toUtc(),
   );
   @override
   List<GeneratedColumn> get $columns => [
@@ -724,7 +775,6 @@ class $DialysisSessionsTable extends DialysisSessions
     postWeightKg,
     calculatedInterdialyticWeightGainKg,
     calculatedUltrafiltrationGoalMl,
-    targetFluidRemovalMl,
     actualFluidRemovedMl,
     notes,
     symptoms,
@@ -745,8 +795,6 @@ class $DialysisSessionsTable extends DialysisSessions
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    } else if (isInserting) {
-      context.missing(_idMeta);
     }
     if (data.containsKey('patient_id')) {
       context.handle(
@@ -814,15 +862,6 @@ class $DialysisSessionsTable extends DialysisSessions
         calculatedUltrafiltrationGoalMl.isAcceptableOrUnknown(
           data['calculated_ultrafiltration_goal_ml']!,
           _calculatedUltrafiltrationGoalMlMeta,
-        ),
-      );
-    }
-    if (data.containsKey('target_fluid_removal_ml')) {
-      context.handle(
-        _targetFluidRemovalMlMeta,
-        targetFluidRemovalMl.isAcceptableOrUnknown(
-          data['target_fluid_removal_ml']!,
-          _targetFluidRemovalMlMeta,
         ),
       );
     }
@@ -904,10 +943,6 @@ class $DialysisSessionsTable extends DialysisSessions
         DriftSqlType.int,
         data['${effectivePrefix}calculated_ultrafiltration_goal_ml'],
       ),
-      targetFluidRemovalMl: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}target_fluid_removal_ml'],
-      ),
       actualFluidRemovedMl: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}actual_fluid_removed_ml'],
@@ -947,7 +982,6 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
   final double? postWeightKg;
   final double? calculatedInterdialyticWeightGainKg;
   final int? calculatedUltrafiltrationGoalMl;
-  final int? targetFluidRemovalMl;
   final int? actualFluidRemovedMl;
   final String? notes;
   final String? symptoms;
@@ -963,7 +997,6 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
     this.postWeightKg,
     this.calculatedInterdialyticWeightGainKg,
     this.calculatedUltrafiltrationGoalMl,
-    this.targetFluidRemovalMl,
     this.actualFluidRemovedMl,
     this.notes,
     this.symptoms,
@@ -995,9 +1028,6 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
       map['calculated_ultrafiltration_goal_ml'] = Variable<int>(
         calculatedUltrafiltrationGoalMl,
       );
-    }
-    if (!nullToAbsent || targetFluidRemovalMl != null) {
-      map['target_fluid_removal_ml'] = Variable<int>(targetFluidRemovalMl);
     }
     if (!nullToAbsent || actualFluidRemovedMl != null) {
       map['actual_fluid_removed_ml'] = Variable<int>(actualFluidRemovedMl);
@@ -1036,9 +1066,6 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
           calculatedUltrafiltrationGoalMl == null && nullToAbsent
           ? const Value.absent()
           : Value(calculatedUltrafiltrationGoalMl),
-      targetFluidRemovalMl: targetFluidRemovalMl == null && nullToAbsent
-          ? const Value.absent()
-          : Value(targetFluidRemovalMl),
       actualFluidRemovedMl: actualFluidRemovedMl == null && nullToAbsent
           ? const Value.absent()
           : Value(actualFluidRemovedMl),
@@ -1072,9 +1099,6 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
       calculatedUltrafiltrationGoalMl: serializer.fromJson<int?>(
         json['calculatedUltrafiltrationGoalMl'],
       ),
-      targetFluidRemovalMl: serializer.fromJson<int?>(
-        json['targetFluidRemovalMl'],
-      ),
       actualFluidRemovedMl: serializer.fromJson<int?>(
         json['actualFluidRemovedMl'],
       ),
@@ -1101,7 +1125,6 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
       'calculatedUltrafiltrationGoalMl': serializer.toJson<int?>(
         calculatedUltrafiltrationGoalMl,
       ),
-      'targetFluidRemovalMl': serializer.toJson<int?>(targetFluidRemovalMl),
       'actualFluidRemovedMl': serializer.toJson<int?>(actualFluidRemovedMl),
       'notes': serializer.toJson<String?>(notes),
       'symptoms': serializer.toJson<String?>(symptoms),
@@ -1120,7 +1143,6 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
     Value<double?> postWeightKg = const Value.absent(),
     Value<double?> calculatedInterdialyticWeightGainKg = const Value.absent(),
     Value<int?> calculatedUltrafiltrationGoalMl = const Value.absent(),
-    Value<int?> targetFluidRemovalMl = const Value.absent(),
     Value<int?> actualFluidRemovedMl = const Value.absent(),
     Value<String?> notes = const Value.absent(),
     Value<String?> symptoms = const Value.absent(),
@@ -1141,9 +1163,6 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
     calculatedUltrafiltrationGoalMl: calculatedUltrafiltrationGoalMl.present
         ? calculatedUltrafiltrationGoalMl.value
         : this.calculatedUltrafiltrationGoalMl,
-    targetFluidRemovalMl: targetFluidRemovalMl.present
-        ? targetFluidRemovalMl.value
-        : this.targetFluidRemovalMl,
     actualFluidRemovedMl: actualFluidRemovedMl.present
         ? actualFluidRemovedMl.value
         : this.actualFluidRemovedMl,
@@ -1175,9 +1194,6 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
           data.calculatedUltrafiltrationGoalMl.present
           ? data.calculatedUltrafiltrationGoalMl.value
           : this.calculatedUltrafiltrationGoalMl,
-      targetFluidRemovalMl: data.targetFluidRemovalMl.present
-          ? data.targetFluidRemovalMl.value
-          : this.targetFluidRemovalMl,
       actualFluidRemovedMl: data.actualFluidRemovedMl.present
           ? data.actualFluidRemovedMl.value
           : this.actualFluidRemovedMl,
@@ -1204,7 +1220,6 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
           ..write(
             'calculatedUltrafiltrationGoalMl: $calculatedUltrafiltrationGoalMl, ',
           )
-          ..write('targetFluidRemovalMl: $targetFluidRemovalMl, ')
           ..write('actualFluidRemovedMl: $actualFluidRemovedMl, ')
           ..write('notes: $notes, ')
           ..write('symptoms: $symptoms, ')
@@ -1225,7 +1240,6 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
     postWeightKg,
     calculatedInterdialyticWeightGainKg,
     calculatedUltrafiltrationGoalMl,
-    targetFluidRemovalMl,
     actualFluidRemovedMl,
     notes,
     symptoms,
@@ -1247,7 +1261,6 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
               this.calculatedInterdialyticWeightGainKg &&
           other.calculatedUltrafiltrationGoalMl ==
               this.calculatedUltrafiltrationGoalMl &&
-          other.targetFluidRemovalMl == this.targetFluidRemovalMl &&
           other.actualFluidRemovedMl == this.actualFluidRemovedMl &&
           other.notes == this.notes &&
           other.symptoms == this.symptoms &&
@@ -1265,7 +1278,6 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
   final Value<double?> postWeightKg;
   final Value<double?> calculatedInterdialyticWeightGainKg;
   final Value<int?> calculatedUltrafiltrationGoalMl;
-  final Value<int?> targetFluidRemovalMl;
   final Value<int?> actualFluidRemovedMl;
   final Value<String?> notes;
   final Value<String?> symptoms;
@@ -1282,7 +1294,6 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
     this.postWeightKg = const Value.absent(),
     this.calculatedInterdialyticWeightGainKg = const Value.absent(),
     this.calculatedUltrafiltrationGoalMl = const Value.absent(),
-    this.targetFluidRemovalMl = const Value.absent(),
     this.actualFluidRemovedMl = const Value.absent(),
     this.notes = const Value.absent(),
     this.symptoms = const Value.absent(),
@@ -1291,7 +1302,7 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
     this.rowid = const Value.absent(),
   });
   DialysisSessionsCompanion.insert({
-    required String id,
+    this.id = const Value.absent(),
     required String patientId,
     required String sessionType,
     required DateTime startedAt,
@@ -1300,15 +1311,13 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
     this.postWeightKg = const Value.absent(),
     this.calculatedInterdialyticWeightGainKg = const Value.absent(),
     this.calculatedUltrafiltrationGoalMl = const Value.absent(),
-    this.targetFluidRemovalMl = const Value.absent(),
     this.actualFluidRemovedMl = const Value.absent(),
     this.notes = const Value.absent(),
     this.symptoms = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
-  }) : id = Value(id),
-       patientId = Value(patientId),
+  }) : patientId = Value(patientId),
        sessionType = Value(sessionType),
        startedAt = Value(startedAt);
   static Insertable<DialysisSession> custom({
@@ -1321,7 +1330,6 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
     Expression<double>? postWeightKg,
     Expression<double>? calculatedInterdialyticWeightGainKg,
     Expression<int>? calculatedUltrafiltrationGoalMl,
-    Expression<int>? targetFluidRemovalMl,
     Expression<int>? actualFluidRemovedMl,
     Expression<String>? notes,
     Expression<String>? symptoms,
@@ -1342,8 +1350,6 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
             calculatedInterdialyticWeightGainKg,
       if (calculatedUltrafiltrationGoalMl != null)
         'calculated_ultrafiltration_goal_ml': calculatedUltrafiltrationGoalMl,
-      if (targetFluidRemovalMl != null)
-        'target_fluid_removal_ml': targetFluidRemovalMl,
       if (actualFluidRemovedMl != null)
         'actual_fluid_removed_ml': actualFluidRemovedMl,
       if (notes != null) 'notes': notes,
@@ -1364,7 +1370,6 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
     Value<double?>? postWeightKg,
     Value<double?>? calculatedInterdialyticWeightGainKg,
     Value<int?>? calculatedUltrafiltrationGoalMl,
-    Value<int?>? targetFluidRemovalMl,
     Value<int?>? actualFluidRemovedMl,
     Value<String?>? notes,
     Value<String?>? symptoms,
@@ -1386,7 +1391,6 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
       calculatedUltrafiltrationGoalMl:
           calculatedUltrafiltrationGoalMl ??
           this.calculatedUltrafiltrationGoalMl,
-      targetFluidRemovalMl: targetFluidRemovalMl ?? this.targetFluidRemovalMl,
       actualFluidRemovedMl: actualFluidRemovedMl ?? this.actualFluidRemovedMl,
       notes: notes ?? this.notes,
       symptoms: symptoms ?? this.symptoms,
@@ -1430,11 +1434,6 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
         calculatedUltrafiltrationGoalMl.value,
       );
     }
-    if (targetFluidRemovalMl.present) {
-      map['target_fluid_removal_ml'] = Variable<int>(
-        targetFluidRemovalMl.value,
-      );
-    }
     if (actualFluidRemovedMl.present) {
       map['actual_fluid_removed_ml'] = Variable<int>(
         actualFluidRemovedMl.value,
@@ -1474,7 +1473,6 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
           ..write(
             'calculatedUltrafiltrationGoalMl: $calculatedUltrafiltrationGoalMl, ',
           )
-          ..write('targetFluidRemovalMl: $targetFluidRemovalMl, ')
           ..write('actualFluidRemovedMl: $actualFluidRemovedMl, ')
           ..write('notes: $notes, ')
           ..write('symptoms: $symptoms, ')
@@ -1499,7 +1497,8 @@ class $BloodPressureLogsTable extends BloodPressureLogs
     aliasedName,
     false,
     type: DriftSqlType.string,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
+    clientDefault: () => _uuid.v4(),
   );
   static const VerificationMeta _patientIdMeta = const VerificationMeta(
     'patientId',
@@ -1593,7 +1592,7 @@ class $BloodPressureLogsTable extends BloodPressureLogs
     false,
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
-    defaultValue: currentDateAndTime,
+    clientDefault: () => DateTime.now().toUtc(),
   );
   static const VerificationMeta _updatedAtMeta = const VerificationMeta(
     'updatedAt',
@@ -1605,7 +1604,7 @@ class $BloodPressureLogsTable extends BloodPressureLogs
     false,
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
-    defaultValue: currentDateAndTime,
+    clientDefault: () => DateTime.now().toUtc(),
   );
   @override
   List<GeneratedColumn> get $columns => [
@@ -1634,8 +1633,6 @@ class $BloodPressureLogsTable extends BloodPressureLogs
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    } else if (isInserting) {
-      context.missing(_idMeta);
     }
     if (data.containsKey('patient_id')) {
       context.handle(
@@ -1963,7 +1960,7 @@ class BloodPressureLogsCompanion extends UpdateCompanion<BloodPressureLog> {
     this.rowid = const Value.absent(),
   });
   BloodPressureLogsCompanion.insert({
-    required String id,
+    this.id = const Value.absent(),
     required String patientId,
     required int systolic,
     required int diastolic,
@@ -1974,8 +1971,7 @@ class BloodPressureLogsCompanion extends UpdateCompanion<BloodPressureLog> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
-  }) : id = Value(id),
-       patientId = Value(patientId),
+  }) : patientId = Value(patientId),
        systolic = Value(systolic),
        diastolic = Value(diastolic),
        pulse = Value(pulse),
@@ -2108,7 +2104,8 @@ class $FluidIntakeLogsTable extends FluidIntakeLogs
     aliasedName,
     false,
     type: DriftSqlType.string,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
+    clientDefault: () => _uuid.v4(),
   );
   static const VerificationMeta _patientIdMeta = const VerificationMeta(
     'patientId',
@@ -2181,7 +2178,7 @@ class $FluidIntakeLogsTable extends FluidIntakeLogs
     false,
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
-    defaultValue: currentDateAndTime,
+    clientDefault: () => DateTime.now().toUtc(),
   );
   static const VerificationMeta _updatedAtMeta = const VerificationMeta(
     'updatedAt',
@@ -2193,7 +2190,7 @@ class $FluidIntakeLogsTable extends FluidIntakeLogs
     false,
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
-    defaultValue: currentDateAndTime,
+    clientDefault: () => DateTime.now().toUtc(),
   );
   @override
   List<GeneratedColumn> get $columns => [
@@ -2220,8 +2217,6 @@ class $FluidIntakeLogsTable extends FluidIntakeLogs
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    } else if (isInserting) {
-      context.missing(_idMeta);
     }
     if (data.containsKey('patient_id')) {
       context.handle(
@@ -2508,7 +2503,7 @@ class FluidIntakeLogsCompanion extends UpdateCompanion<FluidIntakeLog> {
     this.rowid = const Value.absent(),
   });
   FluidIntakeLogsCompanion.insert({
-    required String id,
+    this.id = const Value.absent(),
     required String patientId,
     required int volumeMl,
     required String beverageType,
@@ -2517,8 +2512,7 @@ class FluidIntakeLogsCompanion extends UpdateCompanion<FluidIntakeLog> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
-  }) : id = Value(id),
-       patientId = Value(patientId),
+  }) : patientId = Value(patientId),
        volumeMl = Value(volumeMl),
        beverageType = Value(beverageType),
        recordedAt = Value(recordedAt);
@@ -2636,7 +2630,8 @@ class $FluidOutputLogsTable extends FluidOutputLogs
     aliasedName,
     false,
     type: DriftSqlType.string,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
+    clientDefault: () => _uuid.v4(),
   );
   static const VerificationMeta _patientIdMeta = const VerificationMeta(
     'patientId',
@@ -2706,7 +2701,7 @@ class $FluidOutputLogsTable extends FluidOutputLogs
     false,
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
-    defaultValue: currentDateAndTime,
+    clientDefault: () => DateTime.now().toUtc(),
   );
   static const VerificationMeta _updatedAtMeta = const VerificationMeta(
     'updatedAt',
@@ -2718,7 +2713,7 @@ class $FluidOutputLogsTable extends FluidOutputLogs
     false,
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
-    defaultValue: currentDateAndTime,
+    clientDefault: () => DateTime.now().toUtc(),
   );
   @override
   List<GeneratedColumn> get $columns => [
@@ -2745,8 +2740,6 @@ class $FluidOutputLogsTable extends FluidOutputLogs
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    } else if (isInserting) {
-      context.missing(_idMeta);
     }
     if (data.containsKey('patient_id')) {
       context.handle(
@@ -3034,7 +3027,7 @@ class FluidOutputLogsCompanion extends UpdateCompanion<FluidOutputLog> {
     this.rowid = const Value.absent(),
   });
   FluidOutputLogsCompanion.insert({
-    required String id,
+    this.id = const Value.absent(),
     required String patientId,
     required int volumeMl,
     required String outputType,
@@ -3043,8 +3036,7 @@ class FluidOutputLogsCompanion extends UpdateCompanion<FluidOutputLog> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
-  }) : id = Value(id),
-       patientId = Value(patientId),
+  }) : patientId = Value(patientId),
        volumeMl = Value(volumeMl),
        outputType = Value(outputType),
        recordedAt = Value(recordedAt);
@@ -3159,7 +3151,8 @@ class $CatheterEventsTable extends CatheterEvents
     aliasedName,
     false,
     type: DriftSqlType.string,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
+    clientDefault: () => _uuid.v4(),
   );
   static const VerificationMeta _patientIdMeta = const VerificationMeta(
     'patientId',
@@ -3237,7 +3230,7 @@ class $CatheterEventsTable extends CatheterEvents
     false,
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
-    defaultValue: currentDateAndTime,
+    clientDefault: () => DateTime.now().toUtc(),
   );
   static const VerificationMeta _updatedAtMeta = const VerificationMeta(
     'updatedAt',
@@ -3249,7 +3242,7 @@ class $CatheterEventsTable extends CatheterEvents
     false,
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
-    defaultValue: currentDateAndTime,
+    clientDefault: () => DateTime.now().toUtc(),
   );
   @override
   List<GeneratedColumn> get $columns => [
@@ -3277,8 +3270,6 @@ class $CatheterEventsTable extends CatheterEvents
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    } else if (isInserting) {
-      context.missing(_idMeta);
     }
     if (data.containsKey('patient_id')) {
       context.handle(
@@ -3598,7 +3589,7 @@ class CatheterEventsCompanion extends UpdateCompanion<CatheterEvent> {
     this.rowid = const Value.absent(),
   });
   CatheterEventsCompanion.insert({
-    required String id,
+    this.id = const Value.absent(),
     required String patientId,
     required String catheterType,
     required DateTime insertionDate,
@@ -3608,8 +3599,7 @@ class CatheterEventsCompanion extends UpdateCompanion<CatheterEvent> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
-  }) : id = Value(id),
-       patientId = Value(patientId),
+  }) : patientId = Value(patientId),
        catheterType = Value(catheterType),
        insertionDate = Value(insertionDate),
        replacementDueDate = Value(replacementDueDate),
@@ -3736,7 +3726,8 @@ class $AccessInspectionsTable extends AccessInspections
     aliasedName,
     false,
     type: DriftSqlType.string,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
+    clientDefault: () => _uuid.v4(),
   );
   static const VerificationMeta _patientIdMeta = const VerificationMeta(
     'patientId',
@@ -3874,7 +3865,7 @@ class $AccessInspectionsTable extends AccessInspections
     false,
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
-    defaultValue: currentDateAndTime,
+    clientDefault: () => DateTime.now().toUtc(),
   );
   static const VerificationMeta _updatedAtMeta = const VerificationMeta(
     'updatedAt',
@@ -3886,7 +3877,7 @@ class $AccessInspectionsTable extends AccessInspections
     false,
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
-    defaultValue: currentDateAndTime,
+    clientDefault: () => DateTime.now().toUtc(),
   );
   @override
   List<GeneratedColumn> get $columns => [
@@ -3918,8 +3909,6 @@ class $AccessInspectionsTable extends AccessInspections
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    } else if (isInserting) {
-      context.missing(_idMeta);
     }
     if (data.containsKey('patient_id')) {
       context.handle(
@@ -4379,7 +4368,7 @@ class AccessInspectionsCompanion extends UpdateCompanion<AccessInspection> {
     this.rowid = const Value.absent(),
   });
   AccessInspectionsCompanion.insert({
-    required String id,
+    this.id = const Value.absent(),
     required String patientId,
     required String accessType,
     required String anatomicalLocation,
@@ -4393,8 +4382,7 @@ class AccessInspectionsCompanion extends UpdateCompanion<AccessInspection> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
-  }) : id = Value(id),
-       patientId = Value(patientId),
+  }) : patientId = Value(patientId),
        accessType = Value(accessType),
        anatomicalLocation = Value(anatomicalLocation),
        recordedAt = Value(recordedAt);
@@ -4571,11 +4559,12 @@ abstract class _$AppDatabase extends GeneratedDatabase {
 
 typedef $$PatientsTableCreateCompanionBuilder =
     PatientsCompanion Function({
-      required String id,
+      Value<String> id,
       required String name,
       required String diagnosis,
       Value<double?> prescribedDryWeightKg,
       Value<int?> dailyFluidAllowanceMl,
+      Value<String?> fistulaArmLocation,
       Value<bool> isCaregiverMirror,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
@@ -4588,6 +4577,7 @@ typedef $$PatientsTableUpdateCompanionBuilder =
       Value<String> diagnosis,
       Value<double?> prescribedDryWeightKg,
       Value<int?> dailyFluidAllowanceMl,
+      Value<String?> fistulaArmLocation,
       Value<bool> isCaregiverMirror,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
@@ -4750,6 +4740,11 @@ class $$PatientsTableFilterComposer
 
   ColumnFilters<int> get dailyFluidAllowanceMl => $composableBuilder(
     column: $table.dailyFluidAllowanceMl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fistulaArmLocation => $composableBuilder(
+    column: $table.fistulaArmLocation,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4953,6 +4948,11 @@ class $$PatientsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get fistulaArmLocation => $composableBuilder(
+    column: $table.fistulaArmLocation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isCaregiverMirror => $composableBuilder(
     column: $table.isCaregiverMirror,
     builder: (column) => ColumnOrderings(column),
@@ -4994,6 +4994,11 @@ class $$PatientsTableAnnotationComposer
 
   GeneratedColumn<int> get dailyFluidAllowanceMl => $composableBuilder(
     column: $table.dailyFluidAllowanceMl,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get fistulaArmLocation => $composableBuilder(
+    column: $table.fistulaArmLocation,
     builder: (column) => column,
   );
 
@@ -5201,6 +5206,7 @@ class $$PatientsTableTableManager
                 Value<String> diagnosis = const Value.absent(),
                 Value<double?> prescribedDryWeightKg = const Value.absent(),
                 Value<int?> dailyFluidAllowanceMl = const Value.absent(),
+                Value<String?> fistulaArmLocation = const Value.absent(),
                 Value<bool> isCaregiverMirror = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
@@ -5211,6 +5217,7 @@ class $$PatientsTableTableManager
                 diagnosis: diagnosis,
                 prescribedDryWeightKg: prescribedDryWeightKg,
                 dailyFluidAllowanceMl: dailyFluidAllowanceMl,
+                fistulaArmLocation: fistulaArmLocation,
                 isCaregiverMirror: isCaregiverMirror,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -5218,11 +5225,12 @@ class $$PatientsTableTableManager
               ),
           createCompanionCallback:
               ({
-                required String id,
+                Value<String> id = const Value.absent(),
                 required String name,
                 required String diagnosis,
                 Value<double?> prescribedDryWeightKg = const Value.absent(),
                 Value<int?> dailyFluidAllowanceMl = const Value.absent(),
+                Value<String?> fistulaArmLocation = const Value.absent(),
                 Value<bool> isCaregiverMirror = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
@@ -5233,6 +5241,7 @@ class $$PatientsTableTableManager
                 diagnosis: diagnosis,
                 prescribedDryWeightKg: prescribedDryWeightKg,
                 dailyFluidAllowanceMl: dailyFluidAllowanceMl,
+                fistulaArmLocation: fistulaArmLocation,
                 isCaregiverMirror: isCaregiverMirror,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -5425,7 +5434,7 @@ typedef $$PatientsTableProcessedTableManager =
     >;
 typedef $$DialysisSessionsTableCreateCompanionBuilder =
     DialysisSessionsCompanion Function({
-      required String id,
+      Value<String> id,
       required String patientId,
       required String sessionType,
       required DateTime startedAt,
@@ -5434,7 +5443,6 @@ typedef $$DialysisSessionsTableCreateCompanionBuilder =
       Value<double?> postWeightKg,
       Value<double?> calculatedInterdialyticWeightGainKg,
       Value<int?> calculatedUltrafiltrationGoalMl,
-      Value<int?> targetFluidRemovalMl,
       Value<int?> actualFluidRemovedMl,
       Value<String?> notes,
       Value<String?> symptoms,
@@ -5453,7 +5461,6 @@ typedef $$DialysisSessionsTableUpdateCompanionBuilder =
       Value<double?> postWeightKg,
       Value<double?> calculatedInterdialyticWeightGainKg,
       Value<int?> calculatedUltrafiltrationGoalMl,
-      Value<int?> targetFluidRemovalMl,
       Value<int?> actualFluidRemovedMl,
       Value<String?> notes,
       Value<String?> symptoms,
@@ -5536,11 +5543,6 @@ class $$DialysisSessionsTableFilterComposer
 
   ColumnFilters<int> get calculatedUltrafiltrationGoalMl => $composableBuilder(
     column: $table.calculatedUltrafiltrationGoalMl,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get targetFluidRemovalMl => $composableBuilder(
-    column: $table.targetFluidRemovalMl,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5644,11 +5646,6 @@ class $$DialysisSessionsTableOrderingComposer
         builder: (column) => ColumnOrderings(column),
       );
 
-  ColumnOrderings<int> get targetFluidRemovalMl => $composableBuilder(
-    column: $table.targetFluidRemovalMl,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<int> get actualFluidRemovedMl => $composableBuilder(
     column: $table.actualFluidRemovedMl,
     builder: (column) => ColumnOrderings(column),
@@ -5743,11 +5740,6 @@ class $$DialysisSessionsTableAnnotationComposer
         builder: (column) => column,
       );
 
-  GeneratedColumn<int> get targetFluidRemovalMl => $composableBuilder(
-    column: $table.targetFluidRemovalMl,
-    builder: (column) => column,
-  );
-
   GeneratedColumn<int> get actualFluidRemovedMl => $composableBuilder(
     column: $table.actualFluidRemovedMl,
     builder: (column) => column,
@@ -5830,7 +5822,6 @@ class $$DialysisSessionsTableTableManager
                     const Value.absent(),
                 Value<int?> calculatedUltrafiltrationGoalMl =
                     const Value.absent(),
-                Value<int?> targetFluidRemovalMl = const Value.absent(),
                 Value<int?> actualFluidRemovedMl = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<String?> symptoms = const Value.absent(),
@@ -5849,7 +5840,6 @@ class $$DialysisSessionsTableTableManager
                     calculatedInterdialyticWeightGainKg,
                 calculatedUltrafiltrationGoalMl:
                     calculatedUltrafiltrationGoalMl,
-                targetFluidRemovalMl: targetFluidRemovalMl,
                 actualFluidRemovedMl: actualFluidRemovedMl,
                 notes: notes,
                 symptoms: symptoms,
@@ -5859,7 +5849,7 @@ class $$DialysisSessionsTableTableManager
               ),
           createCompanionCallback:
               ({
-                required String id,
+                Value<String> id = const Value.absent(),
                 required String patientId,
                 required String sessionType,
                 required DateTime startedAt,
@@ -5870,7 +5860,6 @@ class $$DialysisSessionsTableTableManager
                     const Value.absent(),
                 Value<int?> calculatedUltrafiltrationGoalMl =
                     const Value.absent(),
-                Value<int?> targetFluidRemovalMl = const Value.absent(),
                 Value<int?> actualFluidRemovedMl = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<String?> symptoms = const Value.absent(),
@@ -5889,7 +5878,6 @@ class $$DialysisSessionsTableTableManager
                     calculatedInterdialyticWeightGainKg,
                 calculatedUltrafiltrationGoalMl:
                     calculatedUltrafiltrationGoalMl,
-                targetFluidRemovalMl: targetFluidRemovalMl,
                 actualFluidRemovedMl: actualFluidRemovedMl,
                 notes: notes,
                 symptoms: symptoms,
@@ -5968,7 +5956,7 @@ typedef $$DialysisSessionsTableProcessedTableManager =
     >;
 typedef $$BloodPressureLogsTableCreateCompanionBuilder =
     BloodPressureLogsCompanion Function({
-      required String id,
+      Value<String> id,
       required String patientId,
       required int systolic,
       required int diastolic,
@@ -6303,7 +6291,7 @@ class $$BloodPressureLogsTableTableManager
               ),
           createCompanionCallback:
               ({
-                required String id,
+                Value<String> id = const Value.absent(),
                 required String patientId,
                 required int systolic,
                 required int diastolic,
@@ -6398,7 +6386,7 @@ typedef $$BloodPressureLogsTableProcessedTableManager =
     >;
 typedef $$FluidIntakeLogsTableCreateCompanionBuilder =
     FluidIntakeLogsCompanion Function({
-      required String id,
+      Value<String> id,
       required String patientId,
       required int volumeMl,
       required String beverageType,
@@ -6696,7 +6684,7 @@ class $$FluidIntakeLogsTableTableManager
               ),
           createCompanionCallback:
               ({
-                required String id,
+                Value<String> id = const Value.absent(),
                 required String patientId,
                 required int volumeMl,
                 required String beverageType,
@@ -6787,7 +6775,7 @@ typedef $$FluidIntakeLogsTableProcessedTableManager =
     >;
 typedef $$FluidOutputLogsTableCreateCompanionBuilder =
     FluidOutputLogsCompanion Function({
-      required String id,
+      Value<String> id,
       required String patientId,
       required int volumeMl,
       required String outputType,
@@ -7085,7 +7073,7 @@ class $$FluidOutputLogsTableTableManager
               ),
           createCompanionCallback:
               ({
-                required String id,
+                Value<String> id = const Value.absent(),
                 required String patientId,
                 required int volumeMl,
                 required String outputType,
@@ -7176,7 +7164,7 @@ typedef $$FluidOutputLogsTableProcessedTableManager =
     >;
 typedef $$CatheterEventsTableCreateCompanionBuilder =
     CatheterEventsCompanion Function({
-      required String id,
+      Value<String> id,
       required String patientId,
       required String catheterType,
       required DateTime insertionDate,
@@ -7490,7 +7478,7 @@ class $$CatheterEventsTableTableManager
               ),
           createCompanionCallback:
               ({
-                required String id,
+                Value<String> id = const Value.absent(),
                 required String patientId,
                 required String catheterType,
                 required DateTime insertionDate,
@@ -7582,7 +7570,7 @@ typedef $$CatheterEventsTableProcessedTableManager =
     >;
 typedef $$AccessInspectionsTableCreateCompanionBuilder =
     AccessInspectionsCompanion Function({
-      required String id,
+      Value<String> id,
       required String patientId,
       required String accessType,
       required String anatomicalLocation,
@@ -7982,7 +7970,7 @@ class $$AccessInspectionsTableTableManager
               ),
           createCompanionCallback:
               ({
-                required String id,
+                Value<String> id = const Value.absent(),
                 required String patientId,
                 required String accessType,
                 required String anatomicalLocation,

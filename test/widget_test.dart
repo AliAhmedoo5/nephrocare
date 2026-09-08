@@ -22,7 +22,7 @@ void main() {
 
     expect(find.text('NephroCare'), findsOneWidget);
     expect(find.text('Offline Clinical Engine Ready'), findsOneWidget);
-    expect(find.text('Registered Patient Profiles'), findsOneWidget);
+    expect(find.text('Embedded Drift SQLite & Riverpod initialized.'), findsOneWidget);
 
     await harness.dispose();
   });

@@ -1,18 +1,24 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 part 'app_database.g.dart';
 
+const _uuid = Uuid();
+
 // 1. Patients Table
 class Patients extends Table {
-  TextColumn get id => text()();
+  TextColumn get id => text().clientDefault(() => _uuid.v4())();
   TextColumn get name => text()();
   TextColumn get diagnosis => text()(); // hemodialysis, peritonealDialysis, nonDialysisCkd, urologicalCatheter
   RealColumn get prescribedDryWeightKg => real().nullable()();
   IntColumn get dailyFluidAllowanceMl => integer().nullable()();
+  /// Designated arm bearing vascular access (e.g., 'leftArm', 'rightArm', 'none').
+  /// Used to enforce the Fistula Arm Safety Flag per ADR-0003.
+  TextColumn get fistulaArmLocation => text().nullable()();
   BoolColumn get isCaregiverMirror => boolean().withDefault(const Constant(false))();
-  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get createdAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
+  DateTimeColumn get updatedAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -20,7 +26,7 @@ class Patients extends Table {
 
 // 2. Dialysis Sessions Table
 class DialysisSessions extends Table {
-  TextColumn get id => text()();
+  TextColumn get id => text().clientDefault(() => _uuid.v4())();
   TextColumn get patientId => text().references(Patients, #id)();
   TextColumn get sessionType => text()(); // hemodialysis, peritoneal
   DateTimeColumn get startedAt => dateTime()();
@@ -29,12 +35,11 @@ class DialysisSessions extends Table {
   RealColumn get postWeightKg => real().nullable()();
   RealColumn get calculatedInterdialyticWeightGainKg => real().nullable()();
   IntColumn get calculatedUltrafiltrationGoalMl => integer().nullable()();
-  IntColumn get targetFluidRemovalMl => integer().nullable()();
   IntColumn get actualFluidRemovedMl => integer().nullable()();
   TextColumn get notes => text().nullable()();
   TextColumn get symptoms => text().nullable()();
-  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get createdAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
+  DateTimeColumn get updatedAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -42,7 +47,7 @@ class DialysisSessions extends Table {
 
 // 3. Blood Pressure Logs Table
 class BloodPressureLogs extends Table {
-  TextColumn get id => text()();
+  TextColumn get id => text().clientDefault(() => _uuid.v4())();
   TextColumn get patientId => text().references(Patients, #id)();
   IntColumn get systolic => integer()();
   IntColumn get diastolic => integer()();
@@ -50,8 +55,8 @@ class BloodPressureLogs extends Table {
   TextColumn get armUsed => text()(); // leftArm, rightArm
   BoolColumn get isSafeArm => boolean().withDefault(const Constant(true))();
   DateTimeColumn get recordedAt => dateTime()();
-  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get createdAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
+  DateTimeColumn get updatedAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -59,14 +64,14 @@ class BloodPressureLogs extends Table {
 
 // 4. Fluid Intake Logs Table
 class FluidIntakeLogs extends Table {
-  TextColumn get id => text()();
+  TextColumn get id => text().clientDefault(() => _uuid.v4())();
   TextColumn get patientId => text().references(Patients, #id)();
   IntColumn get volumeMl => integer()();
   TextColumn get beverageType => text()();
   BoolColumn get phosphateBinderTaken => boolean().withDefault(const Constant(false))();
   DateTimeColumn get recordedAt => dateTime()();
-  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get createdAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
+  DateTimeColumn get updatedAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -74,14 +79,14 @@ class FluidIntakeLogs extends Table {
 
 // 5. Fluid Output Logs Table
 class FluidOutputLogs extends Table {
-  TextColumn get id => text()();
+  TextColumn get id => text().clientDefault(() => _uuid.v4())();
   TextColumn get patientId => text().references(Patients, #id)();
   IntColumn get volumeMl => integer()();
   TextColumn get outputType => text()(); // urine, peritonealDrain, ultrafiltration
-  IntColumn get hematuriaGrade => integer().nullable()(); // 1 to 4
+  IntColumn get hematuriaGrade => integer().nullable()(); // 1 to 4 per CONTEXT.md
   DateTimeColumn get recordedAt => dateTime()();
-  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get createdAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
+  DateTimeColumn get updatedAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -89,15 +94,15 @@ class FluidOutputLogs extends Table {
 
 // 6. Catheter Events Table
 class CatheterEvents extends Table {
-  TextColumn get id => text()();
+  TextColumn get id => text().clientDefault(() => _uuid.v4())();
   TextColumn get patientId => text().references(Patients, #id)();
   TextColumn get catheterType => text()(); // foley, etc.
   DateTimeColumn get insertionDate => dateTime()();
   DateTimeColumn get replacementDueDate => dateTime()();
   TextColumn get status => text()(); // active, replaced, removed
   TextColumn get notes => text().nullable()();
-  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get createdAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
+  DateTimeColumn get updatedAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -105,7 +110,7 @@ class CatheterEvents extends Table {
 
 // 7. Access Inspections Table
 class AccessInspections extends Table {
-  TextColumn get id => text()();
+  TextColumn get id => text().clientDefault(() => _uuid.v4())();
   TextColumn get patientId => text().references(Patients, #id)();
   TextColumn get accessType => text()(); // arteriovenousFistula, arteriovenousGraft, dialysisCentralLine, peritonealDialysisAccess
   TextColumn get anatomicalLocation => text()(); // leftArm, rightArm, chest, abdomen
@@ -116,8 +121,8 @@ class AccessInspections extends Table {
   BoolColumn get painPresent => boolean().nullable()();
   TextColumn get notes => text().nullable()();
   DateTimeColumn get recordedAt => dateTime()();
-  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get createdAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
+  DateTimeColumn get updatedAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -139,6 +144,12 @@ class AppDatabase extends _$AppDatabase {
   int get schemaVersion => 1;
 
   static QueryExecutor _openConnection() {
-    return driftDatabase(name: 'nephrocare');
+    return driftDatabase(
+      name: 'nephrocare',
+      web: DriftWebOptions(
+        sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+        driftWorker: Uri.parse('drift_worker.js'),
+      ),
+    );
   }
 }
