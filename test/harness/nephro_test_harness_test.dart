@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nephrocare/src/core/testing/test_harness.dart';
+import 'package:nephrocare/src/features/blood_pressure/domain/vascular_safety_rules.dart';
 
 void main() {
   group('Unified Application & State Harness Seam', () {
@@ -135,6 +136,64 @@ void main() {
       expect(outputCount, equals(1));
       expect(catheterCount, equals(1));
       expect(inspectionCount, equals(1));
+    });
+
+    test('Top-level test harness verifies that arm selection lockout is strictly enforced and safe arm readings persist and surface in hemodynamic trends', () async {
+      final now = DateTime.now().toUtc();
+
+      // 1. Create Patient with Arteriovenous Fistula on Right Arm
+      final patient = await harness.createPatient(
+        name: 'Carlos Rivera',
+        diagnosis: 'hemodialysis',
+        vascularAccessType: 'arteriovenousFistula',
+        fistulaArmLocation: 'rightArm',
+      );
+
+      // 2. Verify arm lockout enforcement: attempting to record on right arm throws FistulaArmSafetyException
+      expect(
+        () => harness.recordBloodPressure(
+          patientId: patient.id,
+          systolic: 140,
+          diastolic: 90,
+          pulse: 80,
+          armUsed: 'rightArm',
+          recordedAt: now,
+        ),
+        throwsA(isA<FistulaArmSafetyException>()),
+      );
+
+      // 3. Record on safe arm (leftArm)
+      final record1 = await harness.recordBloodPressure(
+        patientId: patient.id,
+        systolic: 132,
+        diastolic: 84,
+        pulse: 76,
+        armUsed: 'leftArm',
+        recordedAt: now.subtract(const Duration(minutes: 30)),
+      );
+      expect(record1.id, isNotEmpty);
+      expect(record1.isSafeArm, isTrue);
+
+      final record2 = await harness.recordBloodPressure(
+        patientId: patient.id,
+        systolic: 128,
+        diastolic: 80,
+        pulse: 72,
+        armUsed: 'leftArm',
+        recordedAt: now,
+      );
+      expect(record2.id, isNotEmpty);
+      expect(record2.isSafeArm, isTrue);
+
+      // 4. Verify safe arm readings persist and surface in hemodynamic trends
+      final trends = await harness.getHemodynamicTrends(patient.id);
+      expect(trends.length, equals(2));
+      expect(trends.first.id, equals(record2.id));
+      expect(trends.first.systolic, equals(128));
+      expect(trends.first.armUsed, equals('leftArm'));
+      expect(trends.last.id, equals(record1.id));
+      expect(trends.last.systolic, equals(132));
+      expect(trends.last.armUsed, equals('leftArm'));
     });
   });
 }

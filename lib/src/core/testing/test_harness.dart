@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import '../database/app_database.dart';
 import '../database/database_provider.dart';
+import '../../features/blood_pressure/data/blood_pressure_repository.dart';
 
 /// Test harness establishing the Unified Application & State Seam.
 ///
@@ -84,7 +85,7 @@ class NephroTestHarness {
     return (database.select(database.dialysisSessions)..where((tbl) => tbl.id.equals(sessionId))).getSingle();
   }
 
-  /// Clinical helper to log Blood Pressure with arm validation.
+  /// Clinical helper to log Blood Pressure with arm validation and Fistula Arm Safety Flag enforcement.
   Future<BloodPressureLog> recordBloodPressure({
     String? id,
     required String patientId,
@@ -95,20 +96,25 @@ class NephroTestHarness {
     bool isSafeArm = true,
     required DateTime recordedAt,
   }) async {
-    final bpId = id ?? generateUuid();
-    final companion = BloodPressureLogsCompanion.insert(
-      id: drift.Value(bpId),
+    final repository = BloodPressureRepository(database);
+    return repository.recordBloodPressure(
+      id: id,
       patientId: patientId,
       systolic: systolic,
       diastolic: diastolic,
       pulse: pulse,
       armUsed: armUsed,
-      isSafeArm: drift.Value(isSafeArm),
       recordedAt: recordedAt,
     );
-    await database.into(database.bloodPressureLogs).insert(companion);
-    return (database.select(database.bloodPressureLogs)..where((tbl) => tbl.id.equals(bpId))).getSingle();
   }
+
+  /// Clinical helper to query hemodynamic blood pressure logs for a patient ordered by recordedAt descending.
+  Future<List<BloodPressureLog>> getBloodPressureLogs(String patientId) async {
+    return BloodPressureRepository(database).getBloodPressureLogs(patientId);
+  }
+
+  /// Alias for [getBloodPressureLogs].
+  Future<List<BloodPressureLog>> getHemodynamicTrends(String patientId) => getBloodPressureLogs(patientId);
 
   /// Clinical helper to log Fluid Intake.
   Future<FluidIntakeLog> recordFluidIntake({

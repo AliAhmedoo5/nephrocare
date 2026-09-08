@@ -28,3 +28,6 @@ build/
 # Operating System
 .DS_Store
 Thumbs.db
+
+# Tooling
+.playwright-mcp/

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../blood_pressure/presentation/blood_pressure_entry_screen.dart';
 import '../../profile/domain/clinical_condition.dart';
 import '../../profile/presentation/patient_profile_setup_screen.dart';
 import 'condition_adaptive_grid.dart';
@@ -197,6 +198,25 @@ class DashboardScreen extends ConsumerWidget {
               // 3. Condition-Adaptive Grid (Exactly 6 Cards)
               ConditionAdaptiveGrid(
                 conditionName: patient.diagnosis,
+                onCardTap: (card) {
+                  if (card.title == 'Blood Pressure' || card.id.contains('blood_pressure')) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => BloodPressureEntryScreen(
+                          patient: patient,
+                        ),
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Opening ${card.title}...'),
+                        duration: const Duration(seconds: 1),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                },
               ),
             ],
           ),
