@@ -1,0 +1,30 @@
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+*.iml
+.idea/
+
+# Android
+**/android/.gradle/
+**/android/captures/
+**/android/gradlew
+**/android/gradlew.bat
+**/android/local.properties
+**/android/**/GeneratedPluginRegistrant.java
+
+# Windows
+**/windows/flutter/ephemeral/
+
+# Secrets & Environment
+*.env
+*.env.local
+*.nrec
+*.jks
+*.keystore
+
+# Operating System
+.DS_Store
+Thumbs.db
