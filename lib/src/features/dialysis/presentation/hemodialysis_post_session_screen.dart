@@ -32,20 +32,16 @@ class _HemodialysisPostSessionScreenState extends ConsumerState<HemodialysisPost
   final _notesController = TextEditingController();
 
   final Set<String> _selectedSymptoms = {};
-  DialysisSession? _activeSession;
-  bool _isLoadingSession = false;
+  bool _hasInitialized = false;
   bool _isSubmitting = false;
 
   @override
   void initState() {
     super.initState();
-    _activeSession = widget.existingSession;
     _postWeightController.addListener(_onWeightChanged);
-
-    if (_activeSession == null) {
-      _loadLatestSession();
-    } else {
-      _initFromSession(_activeSession!);
+    if (widget.existingSession != null) {
+      _initFromSession(widget.existingSession!);
+      _hasInitialized = true;
     }
   }
 
@@ -54,33 +50,18 @@ class _HemodialysisPostSessionScreenState extends ConsumerState<HemodialysisPost
   }
 
   void _initFromSession(DialysisSession session) {
-    if (session.postWeightKg != null) {
+    if (session.postWeightKg != null && _postWeightController.text.isEmpty) {
       _postWeightController.text = session.postWeightKg.toString();
     }
-    if (session.actualFluidRemovedMl != null) {
+    if (session.actualFluidRemovedMl != null && _fluidRemovedController.text.isEmpty) {
       _fluidRemovedController.text = session.actualFluidRemovedMl.toString();
     }
-    if (session.notes != null) {
+    if (session.notes != null && _notesController.text.isEmpty) {
       _notesController.text = session.notes!;
     }
-    if (session.symptoms != null && session.symptoms!.isNotEmpty) {
+    if (session.symptoms != null && session.symptoms!.isNotEmpty && _selectedSymptoms.isEmpty) {
       final symptomList = session.symptoms!.split(',').map((s) => s.trim().toLowerCase());
       _selectedSymptoms.addAll(symptomList);
-    }
-  }
-
-  Future<void> _loadLatestSession() async {
-    setState(() => _isLoadingSession = true);
-    final repo = ref.read(dialysisSessionRepositoryProvider);
-    final latest = await repo.getLatestSession(widget.patient.id);
-    if (mounted) {
-      setState(() {
-        _activeSession = latest;
-        _isLoadingSession = false;
-        if (latest != null) {
-          _initFromSession(latest);
-        }
-      });
     }
   }
 
@@ -106,7 +87,7 @@ class _HemodialysisPostSessionScreenState extends ConsumerState<HemodialysisPost
     );
   }
 
-  Future<void> _savePostSession() async {
+  Future<void> _savePostSession(DialysisSession? activeSession) async {
     if (!_formKey.currentState!.validate()) return;
     final postWeight = _currentPostWeight;
     if (postWeight == null) return;
@@ -117,8 +98,8 @@ class _HemodialysisPostSessionScreenState extends ConsumerState<HemodialysisPost
       final repo = ref.read(dialysisSessionRepositoryProvider);
 
       String targetSessionId;
-      if (_activeSession != null) {
-        targetSessionId = _activeSession!.id;
+      if (activeSession != null) {
+        targetSessionId = activeSession.id;
       } else {
         // Create an active session if none exists
         final newSession = await repo.recordPreDialysisCheckIn(
@@ -170,85 +151,93 @@ class _HemodialysisPostSessionScreenState extends ConsumerState<HemodialysisPost
     final dryWeight = widget.patient.prescribedDryWeightKg;
     final diff = _postWeightDifference;
 
+    final sessionsAsync = ref.watch(dialysisSessionsStreamProvider(widget.patient.id));
+    final sessionFromStream = sessionsAsync.valueOrNull?.where((s) => s.endedAt == null).firstOrNull ??
+        sessionsAsync.valueOrNull?.firstOrNull;
+    final activeSession = widget.existingSession ?? sessionFromStream;
+
+    if (!_hasInitialized && activeSession != null) {
+      _initFromSession(activeSession);
+      _hasInitialized = true;
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Post-Dialysis Session Log'),
         backgroundColor: theme.colorScheme.primaryContainer,
       ),
       body: SafeArea(
-        child: _isLoadingSession
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                padding: const EdgeInsets.all(16.0),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // 1. Session Context Card
-                      Card(
-                        elevation: 0,
-                        color: theme.colorScheme.surfaceContainerHighest,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          side: BorderSide(color: theme.colorScheme.outlineVariant),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 1. Session Context Card
+                Card(
+                  elevation: 0,
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: theme.colorScheme.outlineVariant),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.assignment_turned_in_rounded, color: theme.colorScheme.primary),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Session Overview',
+                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                          ],
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        const Divider(height: 20),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Prescribed Dry Weight:', style: theme.textTheme.bodyMedium),
+                            Text(
+                              dryWeight != null ? '$dryWeight kg' : 'Not set',
+                              style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                        if (activeSession?.preWeightKg != null) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Row(
-                                children: [
-                                  Icon(Icons.assignment_turned_in_rounded, color: theme.colorScheme.primary),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Session Overview',
-                                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                                  ),
-                                ],
+                              Text('Pre-Dialysis Weight:', style: theme.textTheme.bodyMedium),
+                              Text(
+                                '${activeSession!.preWeightKg} kg',
+                                style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
                               ),
-                              const Divider(height: 20),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text('Prescribed Dry Weight:', style: theme.textTheme.bodyMedium),
-                                  Text(
-                                    dryWeight != null ? '$dryWeight kg' : 'Not set',
-                                    style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                              if (_activeSession?.preWeightKg != null) ...[
-                                const SizedBox(height: 6),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text('Pre-Dialysis Weight:', style: theme.textTheme.bodyMedium),
-                                    Text(
-                                      '${_activeSession!.preWeightKg} kg',
-                                      style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                              if (_activeSession?.calculatedUltrafiltrationGoalMl != null) ...[
-                                const SizedBox(height: 6),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text('Ultrafiltration Target:', style: theme.textTheme.bodyMedium),
-                                    Text(
-                                      '${_activeSession!.calculatedUltrafiltrationGoalMl} mL',
-                                      style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
-                                    ),
-                                  ],
-                                ),
-                              ],
                             ],
                           ),
-                        ),
-                      ),
+                        ],
+                        if (activeSession?.calculatedUltrafiltrationGoalMl != null) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Ultrafiltration Goal:', style: theme.textTheme.bodyMedium),
+                              Text(
+                                '${activeSession!.calculatedUltrafiltrationGoalMl} mL',
+                                style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
                       const SizedBox(height: 16),
 
                       // 2. Post-Dialysis Measurements
@@ -404,21 +393,6 @@ class _HemodialysisPostSessionScreenState extends ConsumerState<HemodialysisPost
                             label: 'Hypotension (Low BP)',
                             value: 'hypotension',
                           ),
-                          _buildSymptomFilterChip(
-                            key: const Key('symptom_headache_chip'),
-                            label: 'Headache',
-                            value: 'headache',
-                          ),
-                          _buildSymptomFilterChip(
-                            key: const Key('symptom_fatigue_chip'),
-                            label: 'Post-Dialysis Fatigue',
-                            value: 'fatigue',
-                          ),
-                          _buildSymptomFilterChip(
-                            key: const Key('symptom_nausea_chip'),
-                            label: 'Nausea',
-                            value: 'nausea',
-                          ),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -442,7 +416,7 @@ class _HemodialysisPostSessionScreenState extends ConsumerState<HemodialysisPost
                         height: 52,
                         child: ElevatedButton.icon(
                           key: const Key('save_post_session_button'),
-                          onPressed: _isSubmitting ? null : _savePostSession,
+                          onPressed: _isSubmitting ? null : () => _savePostSession(activeSession),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: theme.colorScheme.primary,
                             foregroundColor: theme.colorScheme.onPrimary,

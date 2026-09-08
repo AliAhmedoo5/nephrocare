@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nephrocare/src/core/testing/test_harness.dart';
 import 'package:nephrocare/src/features/blood_pressure/domain/vascular_safety_rules.dart';
+import 'package:nephrocare/src/features/dialysis/domain/hemodialysis_calculation_rules.dart';
 
 void main() {
   group('Unified Application & State Harness Seam', () {
@@ -266,6 +267,12 @@ void main() {
       expect(session2.calculatedInterdialyticWeightGainKg, equals(2.9));
       expect(session2.calculatedUltrafiltrationGoalMl, equals(3200));
 
+      // Verify Access Inspection persistence across sequential sessions
+      final inspections2 = await harness.getAccessInspections(patient.id);
+      expect(inspections2.length, equals(2));
+      expect(inspections2[0].thrillPresent, isTrue);
+      expect(inspections2[0].bruitPresent, isTrue);
+
       // 5. Complete Session 2 with post-weight and hypotension/dizziness symptoms
       // Post-weight 69.8 kg -> difference from Prescribed Dry Weight: 69.8 - 70.0 = -0.2 kg
       final completedSession2 = await harness.recordPostDialysisSession(
@@ -286,6 +293,27 @@ void main() {
       expect(allSessions.length, equals(2));
       expect(allSessions[0].id, equals(session2.id));
       expect(allSessions[1].id, equals(session1.id));
+
+      // 7. Verify access inspection validation rules for fistula and central lines
+      final fistulaWarnings = HemodialysisCalculationRules.getAccessSafetyWarnings(
+        accessType: 'arteriovenousFistula',
+        thrillPresent: false,
+        bruitPresent: true,
+      );
+      expect(fistulaWarnings, contains('Absent thrill detected in vascular fistula/graft.'));
+
+      final centralLineWarnings = HemodialysisCalculationRules.getAccessSafetyWarnings(
+        accessType: 'dialysisCentralLine',
+        rednessPresent: true,
+        swellingPresent: true,
+        dischargePresent: true,
+        painPresent: true,
+      );
+      expect(centralLineWarnings.length, equals(4));
+      expect(centralLineWarnings, contains('Exit-site redness detected.'));
+      expect(centralLineWarnings, contains('Exit-site swelling detected.'));
+      expect(centralLineWarnings, contains('Exit-site discharge detected.'));
+      expect(centralLineWarnings, contains('Exit-site pain reported.'));
     });
   });
 }

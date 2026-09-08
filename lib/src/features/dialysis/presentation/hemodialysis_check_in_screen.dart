@@ -31,15 +31,12 @@ class _HemodialysisCheckInScreenState extends ConsumerState<HemodialysisCheckInS
   final _notesController = TextEditingController();
 
   // Access inspection states
-  bool? _thrillPresent;
-  bool? _bruitPresent;
+  bool _thrillPresent = false;
+  bool _bruitPresent = false;
   bool _rednessPresent = false;
   bool _swellingPresent = false;
   bool _dischargePresent = false;
   bool _painPresent = false;
-
-  double? _previousPostWeight;
-  bool _isLoadingPrevious = true;
   bool _isSubmitting = false;
 
   @override
@@ -47,22 +44,10 @@ class _HemodialysisCheckInScreenState extends ConsumerState<HemodialysisCheckInS
     super.initState();
     _preWeightController.addListener(_onCalculationsChanged);
     _volumeAllowanceController.addListener(_onCalculationsChanged);
-    _loadPreviousSession();
   }
 
   void _onCalculationsChanged() {
     setState(() {});
-  }
-
-  Future<void> _loadPreviousSession() async {
-    final repo = ref.read(dialysisSessionRepositoryProvider);
-    final previousSession = await repo.getLatestSession(widget.patient.id);
-    if (mounted) {
-      setState(() {
-        _previousPostWeight = previousSession?.postWeightKg;
-        _isLoadingPrevious = false;
-      });
-    }
   }
 
   @override
@@ -78,12 +63,12 @@ class _HemodialysisCheckInScreenState extends ConsumerState<HemodialysisCheckInS
   double? get _currentPreWeight => double.tryParse(_preWeightController.text.trim());
   int get _volumeAllowance => int.tryParse(_volumeAllowanceController.text.trim()) ?? 0;
 
-  double? get _calculatedIdwg {
+  double? _calculateIdwg(double? previousPostWeight) {
     final preWeight = _currentPreWeight;
     if (preWeight == null) return null;
     return HemodialysisCalculationRules.calculateInterdialyticWeightGain(
       currentPreWeightKg: preWeight,
-      previousPostWeightKg: _previousPostWeight,
+      previousPostWeightKg: previousPostWeight,
       prescribedDryWeightKg: widget.patient.prescribedDryWeightKg,
     );
   }
@@ -164,6 +149,11 @@ class _HemodialysisCheckInScreenState extends ConsumerState<HemodialysisCheckInS
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final sessionsAsync = ref.watch(dialysisSessionsStreamProvider(widget.patient.id));
+    final previousSession = sessionsAsync.valueOrNull?.where((s) => s.postWeightKg != null).firstOrNull;
+    final previousPostWeight = previousSession?.postWeightKg;
+    final calculatedIdwg = _calculateIdwg(previousPostWeight);
+
     final accessType = widget.patient.vascularAccessType ?? '';
     final isFistulaOrGraft = accessType == VascularAccessType.arteriovenousFistula.name ||
         accessType == VascularAccessType.arteriovenousGraft.name;
@@ -230,20 +220,14 @@ class _HemodialysisCheckInScreenState extends ConsumerState<HemodialysisCheckInS
                               'Previous Post-Dialysis Weight:',
                               style: theme.textTheme.bodyMedium,
                             ),
-                            _isLoadingPrevious
-                                ? const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : Text(
-                                    _previousPostWeight != null
-                                        ? '$_previousPostWeight kg'
-                                        : (widget.patient.prescribedDryWeightKg != null
-                                            ? '${widget.patient.prescribedDryWeightKg} kg (Dry Weight)'
-                                            : 'None'),
-                                    style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
-                                  ),
+                            Text(
+                              previousPostWeight != null
+                                  ? '$previousPostWeight kg'
+                                  : (widget.patient.prescribedDryWeightKg != null
+                                      ? '${widget.patient.prescribedDryWeightKg} kg (Dry Weight)'
+                                      : 'None'),
+                              style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                            ),
                           ],
                         ),
                       ],
@@ -332,8 +316,8 @@ class _HemodialysisCheckInScreenState extends ConsumerState<HemodialysisCheckInS
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    _calculatedIdwg != null
-                                        ? '${_calculatedIdwg! >= 0 ? "+" : ""}${_calculatedIdwg!.toStringAsFixed(2)} kg'
+                                    calculatedIdwg != null
+                                        ? '${calculatedIdwg >= 0 ? "+" : ""}${calculatedIdwg.toStringAsFixed(2)} kg'
                                         : '--',
                                     style: theme.textTheme.headlineSmall?.copyWith(
                                       fontWeight: FontWeight.bold,
@@ -395,16 +379,16 @@ class _HemodialysisCheckInScreenState extends ConsumerState<HemodialysisCheckInS
                   CheckboxListTile(
                     key: const Key('thrill_checkbox'),
                     title: const Text('Thrill Present (palpable continuous vibration)'),
-                    value: _thrillPresent ?? false,
-                    onChanged: (val) => setState(() => _thrillPresent = val),
+                    value: _thrillPresent,
+                    onChanged: (val) => setState(() => _thrillPresent = val ?? false),
                     controlAffinity: ListTileControlAffinity.leading,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   CheckboxListTile(
                     key: const Key('bruit_checkbox'),
                     title: const Text('Bruit Present (audible machine-like whoosh)'),
-                    value: _bruitPresent ?? false,
-                    onChanged: (val) => setState(() => _bruitPresent = val),
+                    value: _bruitPresent,
+                    onChanged: (val) => setState(() => _bruitPresent = val ?? false),
                     controlAffinity: ListTileControlAffinity.leading,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
