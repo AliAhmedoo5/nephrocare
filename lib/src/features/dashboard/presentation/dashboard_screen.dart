@@ -5,6 +5,9 @@ import '../../../core/database/app_database.dart';
 import '../../blood_pressure/presentation/blood_pressure_entry_screen.dart';
 import '../../dialysis/presentation/hemodialysis_check_in_screen.dart';
 import '../../dialysis/presentation/hemodialysis_post_session_screen.dart';
+import '../../fluid/data/fluid_repository.dart';
+import '../../fluid/presentation/fluid_intake_entry_screen.dart';
+import '../../fluid/presentation/fluid_output_entry_screen.dart';
 import '../../profile/domain/clinical_condition.dart';
 import '../../profile/presentation/patient_profile_setup_screen.dart';
 import 'condition_adaptive_grid.dart';
@@ -34,6 +37,8 @@ class DashboardScreen extends ConsumerWidget {
     final condition = ClinicalCondition.fromString(patient.diagnosis) ?? ClinicalCondition.hemodialysis;
     final accessLocation = AccessLocation.fromString(patient.fistulaArmLocation);
     final isFistulaArmActive = accessLocation != null && accessLocation.isArm;
+    final fluidBalanceAsync = ref.watch(fluidBalance24hStreamProvider(patient.id));
+    final fluidSummary = fluidBalanceAsync.valueOrNull;
 
     return Scaffold(
       appBar: AppBar(
@@ -131,6 +136,12 @@ class DashboardScreen extends ConsumerWidget {
                               label: 'Daily Fluid Allowance',
                               value: '${patient.dailyFluidAllowanceMl} mL',
                             ),
+                          if (fluidSummary != null)
+                            _MetricItem(
+                              icon: Icons.balance_rounded,
+                              label: '24-Hour Fluid Balance',
+                              value: '${fluidSummary.netBalanceMl >= 0 ? '+' : ''}${fluidSummary.netBalanceMl} mL',
+                            ),
                         ],
                       ),
                     ],
@@ -200,6 +211,7 @@ class DashboardScreen extends ConsumerWidget {
               // 3. Condition-Adaptive Grid (Exactly 6 Cards)
               ConditionAdaptiveGrid(
                 conditionName: patient.diagnosis,
+                fluidSummary: fluidSummary,
                 onCardTap: (card) {
                   if (card.title == 'Blood Pressure' || card.id.contains('blood_pressure')) {
                     Navigator.of(context).push(
@@ -221,6 +233,32 @@ class DashboardScreen extends ConsumerWidget {
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (context) => HemodialysisPostSessionScreen(
+                          patient: patient,
+                        ),
+                      ),
+                    );
+                  } else if (card.id == 'hd_fluid_intake' ||
+                      card.id == 'ckd_fluid_allowance' ||
+                      card.id == 'uro_fluid_intake' ||
+                      card.id == 'ckd_medication_binders' ||
+                      card.title.contains('Fluid Intake') ||
+                      card.title.contains('Fluid Allowance')) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => FluidIntakeEntryScreen(
+                          patient: patient,
+                        ),
+                      ),
+                    );
+                  } else if (card.id == 'hd_fluid_output' ||
+                      card.id == 'pd_fluid_balance' ||
+                      card.id == 'uro_urine_evacuation' ||
+                      card.title.contains('Fluid Output') ||
+                      card.title.contains('Urine Evacuation') ||
+                      card.title.contains('Fluid Balance')) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => FluidOutputEntryScreen(
                           patient: patient,
                         ),
                       ),

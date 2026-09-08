@@ -7,6 +7,8 @@ import '../database/app_database.dart';
 import '../database/database_provider.dart';
 import '../../features/blood_pressure/data/blood_pressure_repository.dart';
 import '../../features/dialysis/data/dialysis_session_repository.dart';
+import '../../features/fluid/data/fluid_repository.dart';
+import '../../features/fluid/domain/fluid_balance_summary.dart';
 
 /// Test harness establishing the Unified Application & State Seam.
 ///
@@ -192,17 +194,14 @@ class NephroTestHarness {
     bool phosphateBinderTaken = false,
     required DateTime recordedAt,
   }) async {
-    final intakeId = id ?? generateUuid();
-    final companion = FluidIntakeLogsCompanion.insert(
-      id: drift.Value(intakeId),
+    return FluidRepository(database).recordFluidIntake(
+      id: id,
       patientId: patientId,
       volumeMl: volumeMl,
       beverageType: beverageType,
-      phosphateBinderTaken: drift.Value(phosphateBinderTaken),
+      phosphateBinderTaken: phosphateBinderTaken,
       recordedAt: recordedAt,
     );
-    await database.into(database.fluidIntakeLogs).insert(companion);
-    return (database.select(database.fluidIntakeLogs)..where((tbl) => tbl.id.equals(intakeId))).getSingle();
   }
 
   /// Clinical helper to log Fluid Output.
@@ -214,17 +213,34 @@ class NephroTestHarness {
     int? hematuriaGrade,
     required DateTime recordedAt,
   }) async {
-    final outputId = id ?? generateUuid();
-    final companion = FluidOutputLogsCompanion.insert(
-      id: drift.Value(outputId),
+    return FluidRepository(database).recordFluidOutput(
+      id: id,
       patientId: patientId,
       volumeMl: volumeMl,
       outputType: outputType,
-      hematuriaGrade: drift.Value(hematuriaGrade),
+      hematuriaGrade: hematuriaGrade,
       recordedAt: recordedAt,
     );
-    await database.into(database.fluidOutputLogs).insert(companion);
-    return (database.select(database.fluidOutputLogs)..where((tbl) => tbl.id.equals(outputId))).getSingle();
+  }
+
+  /// Clinical helper to query 24-hour Fluid Balance summary.
+  Future<FluidBalanceSummary> get24HourFluidBalance(String patientId, {DateTime? asOf}) {
+    return FluidRepository(database).get24HourFluidBalance(patientId, asOf: asOf);
+  }
+
+  /// Clinical helper to query fluid intake logs for a patient.
+  Future<List<FluidIntakeLog>> getFluidIntakeLogs(String patientId, {DateTime? since}) {
+    return FluidRepository(database).getFluidIntakeLogs(patientId, since: since);
+  }
+
+  /// Clinical helper to query fluid output logs for a patient.
+  Future<List<FluidOutputLog>> getFluidOutputLogs(String patientId, {DateTime? since}) {
+    return FluidRepository(database).getFluidOutputLogs(patientId, since: since);
+  }
+
+  /// Clinical helper to watch 24-hour Fluid Balance reactively.
+  Stream<FluidBalanceSummary> watch24HourFluidBalance(String patientId) {
+    return FluidRepository(database).watch24HourFluidBalance(patientId);
   }
 
   /// Clinical helper to log Catheter Lifecycle Event.

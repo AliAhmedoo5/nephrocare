@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../fluid/domain/fluid_balance_summary.dart';
 import '../../profile/domain/condition_adaptive_grid_config.dart';
 
 /// Renders the Condition-Adaptive Grid presenting exactly six uncluttered,
@@ -7,11 +8,13 @@ import '../../profile/domain/condition_adaptive_grid_config.dart';
 class ConditionAdaptiveGrid extends StatelessWidget {
   final String conditionName;
   final void Function(ClinicalActionCard card)? onCardTap;
+  final FluidBalanceSummary? fluidSummary;
 
   const ConditionAdaptiveGrid({
     super.key,
     required this.conditionName,
     this.onCardTap,
+    this.fluidSummary,
   });
 
   @override
@@ -35,12 +38,44 @@ class ConditionAdaptiveGrid extends StatelessWidget {
           itemCount: cards.length,
           itemBuilder: (context, index) {
             final card = cards[index];
+            var effectiveCard = card;
+
+            if (fluidSummary != null) {
+              if (card.id == 'hd_fluid_intake' || card.id == 'ckd_fluid_allowance' || card.id == 'uro_fluid_intake') {
+                effectiveCard = ClinicalActionCard(
+                  id: card.id,
+                  title: card.title,
+                  subtitle: fluidSummary!.formattedIntakeProgression,
+                  icon: card.icon,
+                  semanticLabel: card.semanticLabel,
+                  accentColor: card.accentColor,
+                );
+              } else if (card.id == 'hd_fluid_output' || card.id == 'uro_urine_evacuation') {
+                effectiveCard = ClinicalActionCard(
+                  id: card.id,
+                  title: card.title,
+                  subtitle: fluidSummary!.formattedOutputWithNet,
+                  icon: card.icon,
+                  semanticLabel: card.semanticLabel,
+                  accentColor: card.accentColor,
+                );
+              } else if (card.id == 'pd_fluid_balance') {
+                effectiveCard = ClinicalActionCard(
+                  id: card.id,
+                  title: card.title,
+                  subtitle: fluidSummary!.formattedNetBalance24h,
+                  icon: card.icon,
+                  semanticLabel: card.semanticLabel,
+                  accentColor: card.accentColor,
+                );
+              }
+            }
             return _ClinicalActionGridCard(
-              card: card,
+              card: effectiveCard,
               theme: theme,
               onTap: () {
                 if (onCardTap != null) {
-                  onCardTap!(card);
+                  onCardTap!(effectiveCard);
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(

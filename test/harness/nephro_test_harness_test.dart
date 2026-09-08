@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nephrocare/src/core/testing/test_harness.dart';
 import 'package:nephrocare/src/features/blood_pressure/domain/vascular_safety_rules.dart';
 import 'package:nephrocare/src/features/dialysis/domain/hemodialysis_calculation_rules.dart';
+import 'package:nephrocare/src/features/fluid/domain/fluid_balance_summary.dart';
 
 void main() {
   group('Unified Application & State Harness Seam', () {
@@ -314,6 +315,132 @@ void main() {
       expect(centralLineWarnings, contains('Exit-site swelling detected.'));
       expect(centralLineWarnings, contains('Exit-site discharge detected.'));
       expect(centralLineWarnings, contains('Exit-site pain reported.'));
+    });
+
+    test('Top-level test harness verifies 24-hour Fluid Balance calculation and Phosphate Binder reminder associations', () async {
+      final now = DateTime.now().toUtc();
+
+      // 1. Establish Patient on Hemodialysis with prescribed daily Fluid Allowance
+      final patient = await harness.createPatient(
+        name: 'Arthur Dent',
+        diagnosis: 'hemodialysis',
+        dailyFluidAllowanceMl: 1500,
+        prescribedDryWeightKg: 74.0,
+      );
+
+      // 2. Initial state: 0 intake, 0 output, 0 balance
+      final initialBalance = await harness.get24HourFluidBalance(patient.id, asOf: now);
+      expect(initialBalance.totalIntakeMl, equals(0));
+      expect(initialBalance.totalOutputMl, equals(0));
+      expect(initialBalance.netBalanceMl, equals(0));
+      expect(initialBalance.dailyFluidAllowanceMl, equals(1500));
+      expect(initialBalance.remainingAllowanceMl, equals(1500));
+      expect(initialBalance.allowanceStatus, equals(FluidAllowanceStatus.withinLimit));
+
+      // 3. Log morning intake: 250 mL Water without binder
+      final morningIntake = await harness.recordFluidIntake(
+        patientId: patient.id,
+        volumeMl: 250,
+        beverageType: 'Water',
+        phosphateBinderTaken: false,
+        recordedAt: now.subtract(const Duration(hours: 6)),
+      );
+      expect(morningIntake.id, isNotEmpty);
+      expect(morningIntake.phosphateBinderTaken, isFalse);
+
+      // 4. Log lunch fluid/meal intake: 500 mL Soup WITH Phosphate Binder taken per CONTEXT.md
+      final lunchIntake = await harness.recordFluidIntake(
+        patientId: patient.id,
+        volumeMl: 500,
+        beverageType: 'Soup / Broth',
+        phosphateBinderTaken: true,
+        recordedAt: now.subtract(const Duration(hours: 4)),
+      );
+      expect(lunchIntake.id, isNotEmpty);
+      expect(lunchIntake.phosphateBinderTaken, isTrue);
+
+      // 5. Log afternoon tea preset: 150 mL Tea
+      final teaIntake = await harness.recordFluidIntake(
+        patientId: patient.id,
+        volumeMl: 150,
+        beverageType: 'Tea',
+        phosphateBinderTaken: false,
+        recordedAt: now.subtract(const Duration(hours: 2)),
+      );
+      expect(teaIntake.id, isNotEmpty);
+
+      // 6. Verify cumulative intake progression (250 + 500 + 150 = 900 mL / 1500 mL = 60.0%)
+      final intermediateBalance = await harness.get24HourFluidBalance(patient.id, asOf: now);
+      expect(intermediateBalance.totalIntakeMl, equals(900));
+      expect(intermediateBalance.intakePercentageOfAllowance, equals(60.0));
+      expect(intermediateBalance.remainingAllowanceMl, equals(600));
+      expect(intermediateBalance.allowanceStatus, equals(FluidAllowanceStatus.withinLimit));
+
+      // 7. Verify Phosphate Binder reminder associations
+      final intakeLogs = await harness.getFluidIntakeLogs(patient.id);
+      expect(intakeLogs.length, equals(3));
+      final logsWithBinder = intakeLogs.where((l) => l.phosphateBinderTaken).toList();
+      expect(logsWithBinder.length, equals(1));
+      expect(logsWithBinder.first.id, equals(lunchIntake.id));
+      expect(logsWithBinder.first.beverageType, equals('Soup / Broth'));
+
+      // 8. Log fluid output: Urine evacuation (350 mL, Hematuria Grade 1) and Ultrafiltration (250 mL)
+      final urineOutput = await harness.recordFluidOutput(
+        patientId: patient.id,
+        volumeMl: 350,
+        outputType: 'urine',
+        hematuriaGrade: 1,
+        recordedAt: now.subtract(const Duration(hours: 3)),
+      );
+      expect(urineOutput.id, isNotEmpty);
+      expect(urineOutput.hematuriaGrade, equals(1));
+
+      final ufOutput = await harness.recordFluidOutput(
+        patientId: patient.id,
+        volumeMl: 250,
+        outputType: 'ultrafiltration',
+        recordedAt: now.subtract(const Duration(hours: 1)),
+      );
+      expect(ufOutput.id, isNotEmpty);
+
+      // 9. Verify 24-hour net Fluid Balance:
+      // Total Intake: 900 mL
+      // Total Output: 350 + 250 = 600 mL
+      // Net Fluid Balance: 900 - 600 = +300 mL (surplus)
+      final netBalance = await harness.get24HourFluidBalance(patient.id, asOf: now);
+      expect(netBalance.totalIntakeMl, equals(900));
+      expect(netBalance.totalOutputMl, equals(600));
+      expect(netBalance.netBalanceMl, equals(300));
+      expect(netBalance.remainingAllowanceMl, equals(600));
+
+      // 10. Verify allowance progression transitions:
+      // Add 400 mL intake -> 1300 mL / 1500 mL = 86.7% (nearingLimit)
+      await harness.recordFluidIntake(
+        patientId: patient.id,
+        volumeMl: 400,
+        beverageType: 'Water',
+        recordedAt: now.subtract(const Duration(minutes: 30)),
+      );
+      final nearingBalance = await harness.get24HourFluidBalance(patient.id, asOf: now);
+      expect(nearingBalance.totalIntakeMl, equals(1300));
+      expect(nearingBalance.intakePercentageOfAllowance, equals(86.7));
+      expect(nearingBalance.remainingAllowanceMl, equals(200));
+      expect(nearingBalance.allowanceStatus, equals(FluidAllowanceStatus.nearingLimit));
+
+      // Add 300 mL intake -> 1600 mL / 1500 mL = 106.7% (exceeded, 0 remaining)
+      await harness.recordFluidIntake(
+        patientId: patient.id,
+        volumeMl: 300,
+        beverageType: 'Juice',
+        recordedAt: now,
+      );
+      final exceededBalance = await harness.get24HourFluidBalance(patient.id, asOf: now);
+      expect(exceededBalance.totalIntakeMl, equals(1600));
+      expect(exceededBalance.intakePercentageOfAllowance, equals(106.7));
+      expect(exceededBalance.remainingAllowanceMl, equals(0));
+      expect(exceededBalance.allowanceStatus, equals(FluidAllowanceStatus.exceeded));
+      // Net balance: 1600 - 600 = +1000 mL
+      expect(exceededBalance.netBalanceMl, equals(1000));
     });
   });
 }
