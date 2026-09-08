@@ -19,6 +19,8 @@ import '../../features/reports/data/clinical_report_repository.dart';
 import '../../features/reports/domain/clinical_report_config.dart';
 import '../../features/reports/domain/clinical_report_data.dart';
 import '../../features/reports/domain/clinical_report_pdf_generator.dart';
+import '../../features/sync/domain/patient_sync_bundle.dart';
+import '../../features/sync/domain/sync_merge_engine.dart';
 
 /// Test harness establishing the Unified Application & State Seam.
 ///
@@ -438,6 +440,25 @@ class NephroTestHarness {
       asOf: asOf,
     );
     return ClinicalReportPdfGenerator().generatePdfBytes(reportData, format: format, compress: compress);
+  }
+
+  /// Clinical helper to export a complete [PatientSyncBundle] for offline peer-to-peer exchange.
+  Future<PatientSyncBundle> exportPatientSyncBundle(String patientId) {
+    return PatientSyncBundle.fromDatabase(
+      database: database,
+      patientId: patientId,
+    );
+  }
+
+  /// Clinical helper to ingest a [PatientSyncBundle] with deterministic conflict resolution.
+  Future<SyncMergeResult> mergePatientSyncBundle(
+    PatientSyncBundle bundle, {
+    bool asCaregiverMirror = false,
+  }) {
+    return SyncMergeEngine(database).mergeBundle(
+      bundle,
+      asCaregiverMirror: asCaregiverMirror,
+    );
   }
 
   /// Tears down and disposes container and in-memory database connections.

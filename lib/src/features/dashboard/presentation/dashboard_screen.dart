@@ -14,6 +14,7 @@ import '../../profile/domain/clinical_condition.dart';
 import '../../profile/presentation/patient_profile_setup_screen.dart';
 import '../../profile/presentation/profile_management_screen.dart';
 import '../../reports/presentation/modular_clinical_report_screen.dart';
+import '../../sync/presentation/offline_peer_sync_screen.dart';
 import 'condition_adaptive_grid.dart';
 
 /// Primary dashboard screen rendering the Condition-Adaptive Grid and patient safety indicators.
@@ -51,6 +52,14 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
+  void _openOfflinePeerSync(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => OfflinePeerSyncScreen(patient: patient),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -70,6 +79,12 @@ class DashboardScreen extends ConsumerWidget {
         ),
         backgroundColor: theme.colorScheme.primaryContainer,
         actions: [
+          IconButton(
+            key: const Key('open_peer_sync_button'),
+            icon: const Icon(Icons.sync_alt_rounded),
+            tooltip: 'Offline Peer-to-Peer Sync',
+            onPressed: () => _openOfflinePeerSync(context),
+          ),
           IconButton(
             key: const Key('open_reports_button'),
             icon: const Icon(Icons.picture_as_pdf_outlined),
