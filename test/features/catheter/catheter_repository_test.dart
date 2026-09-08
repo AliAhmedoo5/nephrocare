@@ -1,0 +1,144 @@
+import 'package:drift/drift.dart' as drift;
+import 'package:drift/native.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:nephrocare/src/core/database/app_database.dart';
+import 'package:nephrocare/src/features/catheter/data/catheter_repository.dart';
+import 'package:nephrocare/src/features/catheter/domain/catheter_lifespan_rules.dart';
+import 'package:uuid/uuid.dart';
+
+void main() {
+  group('CatheterRepository Drift SQLite Persistence Seam', () {
+    late AppDatabase db;
+    late CatheterRepository repository;
+    final uuid = const Uuid();
+    late String patientId;
+
+    setUp(() async {
+      db = AppDatabase(NativeDatabase.memory());
+      repository = CatheterRepository(db);
+
+      patientId = uuid.v4();
+      await db.into(db.patients).insert(
+            PatientsCompanion.insert(
+              id: drift.Value(patientId),
+              name: 'Robert Vance',
+              diagnosis: 'urologicalCatheter',
+            ),
+          );
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    test('Records catheter insertion with UUIDv4, 14-day replacementDueDate, and updatedAt', () async {
+      final insertionDate = DateTime.utc(2026, 9, 1, 9, 0);
+
+      final catheter = await repository.recordCatheterInsertion(
+        patientId: patientId,
+        insertionDate: insertionDate,
+        notes: '16 Fr Foley catheter inserted cleanly.',
+      );
+
+      expect(catheter.id, isNotEmpty);
+      expect(
+        RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$', caseSensitive: false)
+            .hasMatch(catheter.id),
+        isTrue,
+      );
+      expect(catheter.patientId, equals(patientId));
+      expect(catheter.catheterType, equals('foley'));
+      expect(catheter.status, equals('active'));
+      expect(catheter.insertionDate.isAtSameMomentAs(insertionDate), isTrue);
+      expect(catheter.replacementDueDate.isAtSameMomentAs(insertionDate.add(const Duration(days: 14))), isTrue);
+      expect(catheter.notes, equals('16 Fr Foley catheter inserted cleanly.'));
+      expect(catheter.createdAt, isNotNull);
+      expect(catheter.updatedAt, isNotNull);
+
+      // Verify active catheter lookup
+      final active = await repository.getActiveCatheter(patientId);
+      expect(active, isNotNull);
+      expect(active!.id, equals(catheter.id));
+    });
+
+    test('Recording catheter replacement marks previous active catheter as replaced and starts new 14-day cycle', () async {
+      final initialDate = DateTime.utc(2026, 9, 1, 9, 0);
+      final initialCatheter = await repository.recordCatheterInsertion(
+        patientId: patientId,
+        insertionDate: initialDate,
+        notes: 'Initial insertion',
+      );
+      expect(initialCatheter.status, equals('active'));
+
+      // 14 days later: replacement event
+      final replacementDate = DateTime.utc(2026, 9, 15, 10, 0);
+      final newCatheter = await repository.recordCatheterReplacement(
+        patientId: patientId,
+        replacementDate: replacementDate,
+        notes: 'Routine scheduled 14-day exchange',
+      );
+
+      expect(newCatheter.id, isNot(equals(initialCatheter.id)));
+      expect(newCatheter.status, equals('active'));
+      expect(newCatheter.insertionDate.isAtSameMomentAs(replacementDate), isTrue);
+      expect(newCatheter.replacementDueDate.isAtSameMomentAs(replacementDate.add(const Duration(days: 14))), isTrue);
+
+      // Verify previous catheter was updated to replaced status
+      final allEvents = await repository.getCatheterHistory(patientId);
+      expect(allEvents.length, equals(2));
+      final previous = allEvents.firstWhere((e) => e.id == initialCatheter.id);
+      expect(previous.status, equals('replaced'));
+      expect(previous.updatedAt, isNotNull);
+
+      // Verify active catheter is the new one
+      final active = await repository.getActiveCatheter(patientId);
+      expect(active!.id, equals(newCatheter.id));
+      expect(active.status, equals('active'));
+    });
+
+    test('Evaluates 14-day lifespan summary reactively for active catheter', () async {
+      final initialDate = DateTime.utc(2026, 9, 1, 8, 0);
+      await repository.recordCatheterInsertion(
+        patientId: patientId,
+        insertionDate: initialDate,
+      );
+
+      // Test asOf day 5 (Green)
+      final summaryDay5 = await repository.getCatheterLifespanSummary(
+        patientId,
+        asOf: DateTime.utc(2026, 9, 5, 8, 0),
+      );
+      expect(summaryDay5, isNotNull);
+      expect(summaryDay5!.status, equals(CatheterLifespanStatus.green));
+      expect(summaryDay5.dayOfCycle, equals(5));
+
+      // Test asOf day 12 (Amber)
+      final summaryDay12 = await repository.getCatheterLifespanSummary(
+        patientId,
+        asOf: DateTime.utc(2026, 9, 12, 8, 0),
+      );
+      expect(summaryDay12, isNotNull);
+      expect(summaryDay12!.status, equals(CatheterLifespanStatus.amber));
+      expect(summaryDay12.dayOfCycle, equals(12));
+
+      // Test asOf day 16 (Red - CAUTI Risk Window)
+      final summaryDay16 = await repository.getCatheterLifespanSummary(
+        patientId,
+        asOf: DateTime.utc(2026, 9, 16, 8, 0),
+      );
+      expect(summaryDay16, isNotNull);
+      expect(summaryDay16!.status, equals(CatheterLifespanStatus.red));
+      expect(summaryDay16.isCautiRiskActive, isTrue);
+    });
+
+    test('Throws ArgumentError if recording for non-existent patient', () async {
+      expect(
+        () => repository.recordCatheterInsertion(
+          patientId: 'non-existent-id',
+          insertionDate: DateTime.now().toUtc(),
+        ),
+        throwsArgumentError,
+      );
+    });
+  });
+}

@@ -289,65 +289,67 @@ class _FluidIntakeEntryScreenState extends ConsumerState<FluidIntakeEntryScreen>
                         const SizedBox(height: 20),
 
                         // 4. Contextual Phosphate Binder Reminder Callout & Checkbox
-                        Container(
-                          padding: const EdgeInsets.all(14.0),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.tertiaryContainer.withValues(alpha: 0.5),
+                        Material(
+                          color: theme.colorScheme.tertiaryContainer.withValues(alpha: 0.5),
+                          shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
+                            side: BorderSide(
                               color: theme.colorScheme.tertiary.withValues(alpha: 0.6),
                               width: 1.5,
                             ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.medication_rounded,
-                                    color: theme.colorScheme.tertiary,
-                                    size: 24,
+                          child: Padding(
+                            padding: const EdgeInsets.all(14.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.medication_rounded,
+                                      color: theme.colorScheme.tertiary,
+                                      size: 24,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Phosphate Binder Timing',
+                                      style: theme.textTheme.titleSmall?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: theme.colorScheme.onTertiaryContainer,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  FluidCalculationRules.phosphateBinderEducationalPrompt,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onTertiaryContainer,
+                                    height: 1.3,
                                   ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Phosphate Binder Timing',
-                                    style: theme.textTheme.titleSmall?.copyWith(
+                                ),
+                                const Divider(height: 20),
+                                CheckboxListTile(
+                                  key: const Key('phosphate_binder_toggle'),
+                                  contentPadding: EdgeInsets.zero,
+                                  controlAffinity: ListTileControlAffinity.leading,
+                                  title: Text(
+                                    'Phosphate Binder Ingested with this Fluid / Meal',
+                                    style: theme.textTheme.bodyMedium?.copyWith(
                                       fontWeight: FontWeight.bold,
-                                      color: theme.colorScheme.onTertiaryContainer,
                                     ),
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                FluidCalculationRules.phosphateBinderEducationalPrompt,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onTertiaryContainer,
-                                  height: 1.3,
-                                ),
-                              ),
-                              const Divider(height: 20),
-                              CheckboxListTile(
-                                key: const Key('phosphate_binder_toggle'),
-                                contentPadding: EdgeInsets.zero,
-                                controlAffinity: ListTileControlAffinity.leading,
-                                title: Text(
-                                  'Phosphate Binder Ingested with this Fluid / Meal',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
+                                  subtitle: const Text(
+                                    'Recorded with this intake event',
+                                    style: TextStyle(fontSize: 12),
                                   ),
+                                  value: _phosphateBinderTaken,
+                                  onChanged: (val) {
+                                    setState(() => _phosphateBinderTaken = val ?? false);
+                                  },
                                 ),
-                                subtitle: const Text(
-                                  'Recorded with this intake event',
-                                  style: TextStyle(fontSize: 12),
-                                ),
-                                value: _phosphateBinderTaken,
-                                onChanged: (val) {
-                                  setState(() => _phosphateBinderTaken = val ?? false);
-                                },
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
 

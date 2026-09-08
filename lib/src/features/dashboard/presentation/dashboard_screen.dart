@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../blood_pressure/presentation/blood_pressure_entry_screen.dart';
+import '../../catheter/data/catheter_repository.dart';
+import '../../catheter/presentation/catheter_lifespan_screen.dart';
 import '../../dialysis/presentation/hemodialysis_check_in_screen.dart';
 import '../../dialysis/presentation/hemodialysis_post_session_screen.dart';
 import '../../fluid/data/fluid_repository.dart';
@@ -39,6 +41,8 @@ class DashboardScreen extends ConsumerWidget {
     final isFistulaArmActive = accessLocation != null && accessLocation.isArm;
     final fluidBalanceAsync = ref.watch(fluidBalance24hStreamProvider(patient.id));
     final fluidSummary = fluidBalanceAsync.valueOrNull;
+    final catheterSummaryAsync = ref.watch(catheterLifespanSummaryStreamProvider(patient.id));
+    final catheterSummary = catheterSummaryAsync.valueOrNull;
 
     return Scaffold(
       appBar: AppBar(
@@ -142,6 +146,12 @@ class DashboardScreen extends ConsumerWidget {
                               label: '24-Hour Fluid Balance',
                               value: '${fluidSummary.netBalanceMl >= 0 ? '+' : ''}${fluidSummary.netBalanceMl} mL',
                             ),
+                          if (catheterSummary != null)
+                            _MetricItem(
+                              icon: Icons.timer_outlined,
+                              label: 'Foley Catheter',
+                              value: 'Day ${catheterSummary.dayOfCycle} of 14',
+                            ),
                         ],
                       ),
                     ],
@@ -197,6 +207,55 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ],
 
+              // 3. CAUTI Risk Window Banner per CONTEXT.md
+              if (catheterSummary != null && catheterSummary.isCautiRiskActive) ...[
+                const SizedBox(height: 12),
+                Container(
+                  key: const Key('dashboard_cauti_risk_alert'),
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.errorContainer,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: theme.colorScheme.error,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: theme.colorScheme.onErrorContainer,
+                        size: 28,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'CAUTI Risk Window Active',
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                color: theme.colorScheme.onErrorContainer,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Indwelling Foley catheter exceeded 14-day lifespan (${catheterSummary.daysOverdue} day${catheterSummary.daysOverdue == 1 ? '' : 's'} past due). Timely replacement mandated to avoid infection.',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onErrorContainer,
+                                height: 1.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
               const SizedBox(height: 20),
 
               // Section Header
@@ -212,6 +271,7 @@ class DashboardScreen extends ConsumerWidget {
               ConditionAdaptiveGrid(
                 conditionName: patient.diagnosis,
                 fluidSummary: fluidSummary,
+                catheterSummary: catheterSummary,
                 onCardTap: (card) {
                   if (card.title == 'Blood Pressure' || card.id.contains('blood_pressure')) {
                     Navigator.of(context).push(
@@ -233,6 +293,16 @@ class DashboardScreen extends ConsumerWidget {
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (context) => HemodialysisPostSessionScreen(
+                          patient: patient,
+                        ),
+                      ),
+                    );
+                  } else if (card.id == 'uro_catheter_lifespan' ||
+                      card.title.contains('Foley Catheter') ||
+                      card.title.contains('Catheter Lifespan')) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => CatheterLifespanScreen(
                           patient: patient,
                         ),
                       ),

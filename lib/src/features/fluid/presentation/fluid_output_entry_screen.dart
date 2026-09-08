@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../catheter/domain/catheter_lifespan_rules.dart';
 import '../../profile/data/patient_repository.dart';
 import '../data/fluid_repository.dart';
 import '../domain/fluid_balance_summary.dart';
@@ -318,41 +319,18 @@ class _FluidOutputEntryScreenState extends ConsumerState<FluidOutputEntryScreen>
                           const SizedBox(height: 8),
                           Column(
                             children: [
-                              _HematuriaTile(
-                                key: const Key('hematuria_grade_1'),
-                                grade: 1,
-                                title: 'Grade 1: Clear / Yellow / Light Pink',
-                                description: 'No visible bleeding or microscopic traces',
-                                isSelected: _selectedHematuriaGrade == 1,
-                                onSelect: () => setState(() => _selectedHematuriaGrade = 1),
-                              ),
-                              const SizedBox(height: 6),
-                              _HematuriaTile(
-                                key: const Key('hematuria_grade_2'),
-                                grade: 2,
-                                title: 'Grade 2: Pink / Amber',
-                                description: 'Slight visible hematuria, tea or rose colored',
-                                isSelected: _selectedHematuriaGrade == 2,
-                                onSelect: () => setState(() => _selectedHematuriaGrade = 2),
-                              ),
-                              const SizedBox(height: 6),
-                              _HematuriaTile(
-                                key: const Key('hematuria_grade_3'),
-                                grade: 3,
-                                title: 'Grade 3: Gross Blood / Red',
-                                description: 'Frank hematuria, distinct red coloration',
-                                isSelected: _selectedHematuriaGrade == 3,
-                                onSelect: () => setState(() => _selectedHematuriaGrade = 3),
-                              ),
-                              const SizedBox(height: 6),
-                              _HematuriaTile(
-                                key: const Key('hematuria_grade_4'),
-                                grade: 4,
-                                title: 'Grade 4: Frank Blood with Clots',
-                                description: 'Heavy bleeding with active clot formation / catheter obstruction risk',
-                                isSelected: _selectedHematuriaGrade == 4,
-                                onSelect: () => setState(() => _selectedHematuriaGrade = 4),
-                              ),
+                              for (int g = 1; g <= 4; g++) ...[
+                                if (g > 1) const SizedBox(height: 6),
+                                _HematuriaTile(
+                                  key: Key('hematuria_grade_$g'),
+                                  grade: g,
+                                  title: HematuriaGradeInfo.fromGrade(g).title,
+                                  description: HematuriaGradeInfo.fromGrade(g).description,
+                                  indicatorColor: HematuriaGradeInfo.fromGrade(g).color,
+                                  isSelected: _selectedHematuriaGrade == g,
+                                  onSelect: () => setState(() => _selectedHematuriaGrade = (_selectedHematuriaGrade == g ? null : g)),
+                                ),
+                              ],
                             ],
                           ),
                         ],
@@ -413,6 +391,7 @@ class _HematuriaTile extends StatelessWidget {
   final int grade;
   final String title;
   final String description;
+  final Color? indicatorColor;
   final bool isSelected;
   final VoidCallback onSelect;
 
@@ -421,6 +400,7 @@ class _HematuriaTile extends StatelessWidget {
     required this.grade,
     required this.title,
     required this.description,
+    this.indicatorColor,
     required this.isSelected,
     required this.onSelect,
   });
@@ -452,6 +432,18 @@ class _HematuriaTile extends StatelessWidget {
               size: 20,
             ),
             const SizedBox(width: 10),
+            if (indicatorColor != null) ...[
+              Container(
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: indicatorColor,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.black26, width: 1.0),
+                ),
+              ),
+              const SizedBox(width: 10),
+            ],
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

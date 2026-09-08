@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../catheter/domain/catheter_lifespan_rules.dart';
 import '../../fluid/domain/fluid_balance_summary.dart';
 import '../../profile/domain/condition_adaptive_grid_config.dart';
 
@@ -9,12 +10,14 @@ class ConditionAdaptiveGrid extends StatelessWidget {
   final String conditionName;
   final void Function(ClinicalActionCard card)? onCardTap;
   final FluidBalanceSummary? fluidSummary;
+  final CatheterLifespanSummary? catheterSummary;
 
   const ConditionAdaptiveGrid({
     super.key,
     required this.conditionName,
     this.onCardTap,
     this.fluidSummary,
+    this.catheterSummary,
   });
 
   @override
@@ -69,6 +72,17 @@ class ConditionAdaptiveGrid extends StatelessWidget {
                   accentColor: card.accentColor,
                 );
               }
+            }
+
+            if (catheterSummary != null && card.id == 'uro_catheter_lifespan') {
+              effectiveCard = ClinicalActionCard(
+                id: card.id,
+                title: card.title,
+                subtitle: 'Day ${catheterSummary!.dayOfCycle} of 14 • ${catheterSummary!.statusTitle}',
+                icon: card.icon,
+                semanticLabel: card.semanticLabel,
+                accentColor: catheterSummary!.statusColor,
+              );
             }
             return _ClinicalActionGridCard(
               card: effectiveCard,

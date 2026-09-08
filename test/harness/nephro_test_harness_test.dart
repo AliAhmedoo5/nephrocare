@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nephrocare/src/core/testing/test_harness.dart';
 import 'package:nephrocare/src/features/blood_pressure/domain/vascular_safety_rules.dart';
+import 'package:nephrocare/src/features/catheter/domain/catheter_lifespan_rules.dart';
 import 'package:nephrocare/src/features/dialysis/domain/hemodialysis_calculation_rules.dart';
 import 'package:nephrocare/src/features/fluid/domain/fluid_balance_summary.dart';
 
@@ -441,6 +442,175 @@ void main() {
       expect(exceededBalance.allowanceStatus, equals(FluidAllowanceStatus.exceeded));
       // Net balance: 1600 - 600 = +1000 mL
       expect(exceededBalance.netBalanceMl, equals(1000));
+    });
+
+    test('Top-level test harness verifies state transitions across the 14-day lifespan cycle and CAUTI Risk Window triggering', () async {
+      // 1. Establish Patient under indwelling Urine Foley Catheter clinical care
+      final patient = await harness.createPatient(
+        name: 'George Washington',
+        diagnosis: 'urologicalCatheter',
+        dailyFluidAllowanceMl: 2000,
+      );
+      expect(patient.id, isNotEmpty);
+      expect(patient.diagnosis, equals('urologicalCatheter'));
+
+      final insertionDate = DateTime.utc(2026, 9, 1, 8, 0);
+
+      // 2. Record initial Urine Foley Catheter insertion event
+      final initialCatheter = await harness.recordCatheterInsertion(
+        patientId: patient.id,
+        insertionDate: insertionDate,
+        notes: 'Initial insertion of 16 Fr indwelling Foley catheter.',
+      );
+
+      expect(initialCatheter.id, isNotEmpty);
+      expect(
+        RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$', caseSensitive: false)
+            .hasMatch(initialCatheter.id),
+        isTrue,
+      );
+      expect(initialCatheter.catheterType, equals('foley'));
+      expect(initialCatheter.status, equals('active'));
+      expect(initialCatheter.insertionDate.isAtSameMomentAs(insertionDate), isTrue);
+      expect(initialCatheter.replacementDueDate.isAtSameMomentAs(insertionDate.add(const Duration(days: 14))), isTrue);
+      expect(initialCatheter.createdAt, isNotNull);
+      expect(initialCatheter.updatedAt, isNotNull);
+
+      // 3. Verify state transition: Green state for Days 1 to 10
+      // Day 1:
+      final evalDay1 = await harness.evaluateCatheterLifespan(
+        patient.id,
+        asOf: DateTime.utc(2026, 9, 1, 12, 0),
+      );
+      expect(evalDay1, isNotNull);
+      expect(evalDay1!.status, equals(CatheterLifespanStatus.green));
+      expect(evalDay1.dayOfCycle, equals(1));
+      expect(evalDay1.daysElapsed, equals(0));
+      expect(evalDay1.daysRemaining, equals(14));
+      expect(evalDay1.isCautiRiskActive, isFalse);
+
+      // Day 6:
+      final evalDay6 = await harness.evaluateCatheterLifespan(
+        patient.id,
+        asOf: DateTime.utc(2026, 9, 6, 8, 0),
+      );
+      expect(evalDay6!.status, equals(CatheterLifespanStatus.green));
+      expect(evalDay6.dayOfCycle, equals(6));
+      expect(evalDay6.daysElapsed, equals(5));
+      expect(evalDay6.daysRemaining, equals(9));
+      expect(evalDay6.isCautiRiskActive, isFalse);
+
+      // Day 10 (Last day of green window):
+      final evalDay10 = await harness.evaluateCatheterLifespan(
+        patient.id,
+        asOf: DateTime.utc(2026, 9, 10, 23, 0),
+      );
+      expect(evalDay10!.status, equals(CatheterLifespanStatus.green));
+      expect(evalDay10.dayOfCycle, equals(10));
+      expect(evalDay10.daysElapsed, equals(9));
+      expect(evalDay10.daysRemaining, equals(5));
+      expect(evalDay10.isCautiRiskActive, isFalse);
+
+      // 4. Verify state transition: Amber state for Days 11 to 14 (Mandatory replacement approaching)
+      // Day 11 (First day of amber warning):
+      final evalDay11 = await harness.evaluateCatheterLifespan(
+        patient.id,
+        asOf: DateTime.utc(2026, 9, 11, 8, 0),
+      );
+      expect(evalDay11!.status, equals(CatheterLifespanStatus.amber));
+      expect(evalDay11.dayOfCycle, equals(11));
+      expect(evalDay11.daysElapsed, equals(10));
+      expect(evalDay11.daysRemaining, equals(4));
+      expect(evalDay11.isCautiRiskActive, isFalse);
+
+      // Day 14 (14-day due date):
+      final evalDay14 = await harness.evaluateCatheterLifespan(
+        patient.id,
+        asOf: DateTime.utc(2026, 9, 14, 20, 0),
+      );
+      expect(evalDay14!.status, equals(CatheterLifespanStatus.amber));
+      expect(evalDay14.dayOfCycle, equals(14));
+      expect(evalDay14.daysElapsed, equals(13));
+      expect(evalDay14.daysRemaining, equals(1));
+      expect(evalDay14.isCautiRiskActive, isFalse);
+
+      // 5. Verify state transition: Red state for Days 15+ (CAUTI Risk Window Triggered!)
+      // Day 15:
+      final evalDay15 = await harness.evaluateCatheterLifespan(
+        patient.id,
+        asOf: DateTime.utc(2026, 9, 15, 8, 0),
+      );
+      expect(evalDay15!.status, equals(CatheterLifespanStatus.red));
+      expect(evalDay15.dayOfCycle, equals(15));
+      expect(evalDay15.daysElapsed, equals(14));
+      expect(evalDay15.daysRemaining, equals(0));
+      expect(evalDay15.daysOverdue, equals(1));
+      expect(evalDay15.isCautiRiskActive, isTrue);
+
+      // Day 18 (4 days overdue in CAUTI risk window):
+      final evalDay18 = await harness.evaluateCatheterLifespan(
+        patient.id,
+        asOf: DateTime.utc(2026, 9, 18, 8, 0),
+      );
+      expect(evalDay18!.status, equals(CatheterLifespanStatus.red));
+      expect(evalDay18.dayOfCycle, equals(18));
+      expect(evalDay18.daysElapsed, equals(17));
+      expect(evalDay18.daysRemaining, equals(0));
+      expect(evalDay18.daysOverdue, equals(4));
+      expect(evalDay18.isCautiRiskActive, isTrue);
+
+      // 6. Record Urine Evacuation with Standardized Hematuria Grading during CAUTI Risk Window
+      final urineLog = await harness.recordFluidOutput(
+        patientId: patient.id,
+        volumeMl: 450,
+        outputType: 'urine',
+        hematuriaGrade: 3, // Grade 3: Red/Gross
+        recordedAt: DateTime.utc(2026, 9, 18, 8, 30),
+      );
+
+      expect(urineLog.id, isNotEmpty);
+      expect(
+        RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$', caseSensitive: false)
+            .hasMatch(urineLog.id),
+        isTrue,
+      );
+      expect(urineLog.outputType, equals('urine'));
+      expect(urineLog.volumeMl, equals(450));
+      expect(urineLog.hematuriaGrade, equals(3));
+      expect(HematuriaGradeInfo.fromGrade(urineLog.hematuriaGrade!).title, equals('Grade 3: Red/Gross'));
+      expect(urineLog.createdAt, isNotNull);
+      expect(urineLog.updatedAt, isNotNull);
+
+      // 7. Catheter Replacement Event resets the 14-day cycle and retires the previous catheter
+      final replacementDate = DateTime.utc(2026, 9, 18, 9, 0);
+      final replacedCatheter = await harness.recordCatheterReplacement(
+        patientId: patient.id,
+        replacementDate: replacementDate,
+        notes: 'Clinical exchange: replaced due to Day 18 CAUTI risk window and Grade 3 hematuria.',
+      );
+
+      expect(replacedCatheter.id, isNot(equals(initialCatheter.id)));
+      expect(replacedCatheter.status, equals('active'));
+      expect(replacedCatheter.insertionDate.isAtSameMomentAs(replacementDate), isTrue);
+      expect(replacedCatheter.replacementDueDate.isAtSameMomentAs(replacementDate.add(const Duration(days: 14))), isTrue);
+
+      // Verify previous catheter was marked replaced in Drift SQLite
+      final history = await harness.getCatheterHistory(patient.id);
+      expect(history.length, equals(2));
+      final oldCatheterInDb = history.firstWhere((e) => e.id == initialCatheter.id);
+      expect(oldCatheterInDb.status, equals('replaced'));
+      expect(oldCatheterInDb.updatedAt, isNotNull);
+
+      // Verify active catheter is now reset to Day 1 (Green status, 14 days remaining)
+      final evalPostReplacement = await harness.evaluateCatheterLifespan(
+        patient.id,
+        asOf: replacementDate,
+      );
+      expect(evalPostReplacement!.status, equals(CatheterLifespanStatus.green));
+      expect(evalPostReplacement.dayOfCycle, equals(1));
+      expect(evalPostReplacement.daysElapsed, equals(0));
+      expect(evalPostReplacement.daysRemaining, equals(14));
+      expect(evalPostReplacement.isCautiRiskActive, isFalse);
     });
   });
 }

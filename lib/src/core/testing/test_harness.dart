@@ -6,6 +6,8 @@ import 'package:uuid/uuid.dart';
 import '../database/app_database.dart';
 import '../database/database_provider.dart';
 import '../../features/blood_pressure/data/blood_pressure_repository.dart';
+import '../../features/catheter/data/catheter_repository.dart';
+import '../../features/catheter/domain/catheter_lifespan_rules.dart';
 import '../../features/dialysis/data/dialysis_session_repository.dart';
 import '../../features/fluid/data/fluid_repository.dart';
 import '../../features/fluid/domain/fluid_balance_summary.dart';
@@ -265,6 +267,55 @@ class NephroTestHarness {
     );
     await database.into(database.catheterEvents).insert(companion);
     return (database.select(database.catheterEvents)..where((tbl) => tbl.id.equals(catheterId))).getSingle();
+  }
+
+  /// Clinical helper to record a Urine Foley Catheter insertion event.
+  Future<CatheterEvent> recordCatheterInsertion({
+    String? id,
+    required String patientId,
+    required DateTime insertionDate,
+    String? notes,
+    String catheterType = 'foley',
+  }) {
+    return CatheterRepository(database).recordCatheterInsertion(
+      id: id,
+      patientId: patientId,
+      insertionDate: insertionDate,
+      notes: notes,
+      catheterType: catheterType,
+    );
+  }
+
+  /// Clinical helper to record a Urine Foley Catheter replacement event.
+  Future<CatheterEvent> recordCatheterReplacement({
+    String? id,
+    required String patientId,
+    required DateTime replacementDate,
+    String? notes,
+    String catheterType = 'foley',
+  }) {
+    return CatheterRepository(database).recordCatheterReplacement(
+      id: id,
+      patientId: patientId,
+      replacementDate: replacementDate,
+      notes: notes,
+      catheterType: catheterType,
+    );
+  }
+
+  /// Clinical helper to query the currently active catheter for a patient.
+  Future<CatheterEvent?> getActiveCatheter(String patientId) {
+    return CatheterRepository(database).getActiveCatheter(patientId);
+  }
+
+  /// Clinical helper to query all catheter events for a patient.
+  Future<List<CatheterEvent>> getCatheterHistory(String patientId) {
+    return CatheterRepository(database).getCatheterHistory(patientId);
+  }
+
+  /// Clinical helper to evaluate 14-day lifespan summary and CAUTI risk status.
+  Future<CatheterLifespanSummary?> evaluateCatheterLifespan(String patientId, {DateTime? asOf}) {
+    return CatheterRepository(database).getCatheterLifespanSummary(patientId, asOf: asOf);
   }
 
   /// Clinical helper to log Vascular Access Inspection.
