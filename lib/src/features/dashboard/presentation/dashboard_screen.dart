@@ -13,6 +13,7 @@ import '../../fluid/presentation/fluid_output_entry_screen.dart';
 import '../../profile/domain/clinical_condition.dart';
 import '../../profile/presentation/patient_profile_setup_screen.dart';
 import '../../profile/presentation/profile_management_screen.dart';
+import '../../reports/presentation/modular_clinical_report_screen.dart';
 import 'condition_adaptive_grid.dart';
 
 /// Primary dashboard screen rendering the Condition-Adaptive Grid and patient safety indicators.
@@ -42,6 +43,14 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
+  void _openModularClinicalReport(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ModularClinicalReportScreen(patient: patient),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -61,6 +70,12 @@ class DashboardScreen extends ConsumerWidget {
         ),
         backgroundColor: theme.colorScheme.primaryContainer,
         actions: [
+          IconButton(
+            key: const Key('open_reports_button'),
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            tooltip: 'Modular Clinical Report',
+            onPressed: () => _openModularClinicalReport(context),
+          ),
           IconButton(
             key: const Key('manage_profiles_button'),
             icon: const Icon(Icons.people_alt_outlined),
@@ -370,6 +385,10 @@ class DashboardScreen extends ConsumerWidget {
                         ),
                       ),
                     );
+                  } else if (card.id.contains('clinical_report') ||
+                      card.title.contains('Modular Clinical Report') ||
+                      card.title.contains('Clinical Report')) {
+                    _openModularClinicalReport(context);
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(

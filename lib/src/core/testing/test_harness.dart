@@ -1,6 +1,9 @@
+import 'dart:typed_data';
 import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:uuid/uuid.dart';
 
 import '../database/app_database.dart';
@@ -12,6 +15,10 @@ import '../../features/dialysis/data/dialysis_session_repository.dart';
 import '../../features/fluid/data/fluid_repository.dart';
 import '../../features/fluid/domain/fluid_balance_summary.dart';
 import '../../features/profile/data/patient_repository.dart';
+import '../../features/reports/data/clinical_report_repository.dart';
+import '../../features/reports/domain/clinical_report_config.dart';
+import '../../features/reports/domain/clinical_report_data.dart';
+import '../../features/reports/domain/clinical_report_pdf_generator.dart';
 
 /// Test harness establishing the Unified Application & State Seam.
 ///
@@ -386,6 +393,51 @@ class NephroTestHarness {
     );
     await database.into(database.accessInspections).insert(companion);
     return (database.select(database.accessInspections)..where((tbl) => tbl.id.equals(accessId))).getSingle();
+  }
+
+  /// Clinical helper to compile modular clinical report data.
+  Future<ClinicalReportData> compileModularClinicalReportData({
+    required String patientId,
+    required ModularReportConfig config,
+    DateTime? asOf,
+  }) {
+    return ClinicalReportRepository(database).compileReportData(
+      patientId: patientId,
+      config: config,
+      asOf: asOf,
+    );
+  }
+
+  /// Clinical helper to compile Modular Clinical Report PDF [pw.Document] structure.
+  Future<pw.Document> buildModularClinicalReportDocument({
+    required String patientId,
+    required ModularReportConfig config,
+    DateTime? asOf,
+    PdfPageFormat format = PdfPageFormat.a4,
+    bool compress = true,
+  }) async {
+    final reportData = await compileModularClinicalReportData(
+      patientId: patientId,
+      config: config,
+      asOf: asOf,
+    );
+    return ClinicalReportPdfGenerator().buildPdfDocument(reportData, format: format, compress: compress);
+  }
+
+  /// Clinical helper to generate Modular Clinical Report PDF bytes client-side.
+  Future<Uint8List> generateModularClinicalReportPdf({
+    required String patientId,
+    required ModularReportConfig config,
+    DateTime? asOf,
+    PdfPageFormat format = PdfPageFormat.a4,
+    bool compress = true,
+  }) async {
+    final reportData = await compileModularClinicalReportData(
+      patientId: patientId,
+      config: config,
+      asOf: asOf,
+    );
+    return ClinicalReportPdfGenerator().generatePdfBytes(reportData, format: format, compress: compress);
   }
 
   /// Tears down and disposes container and in-memory database connections.

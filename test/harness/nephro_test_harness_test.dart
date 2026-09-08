@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nephrocare/src/core/testing/test_harness.dart';
 import 'package:nephrocare/src/features/blood_pressure/domain/vascular_safety_rules.dart';
 import 'package:nephrocare/src/features/catheter/domain/catheter_lifespan_rules.dart';
 import 'package:nephrocare/src/features/dialysis/domain/hemodialysis_calculation_rules.dart';
 import 'package:nephrocare/src/features/fluid/domain/fluid_balance_summary.dart';
+import 'package:nephrocare/src/features/reports/domain/clinical_report_config.dart';
 
 void main() {
   group('Unified Application & State Harness Seam', () {
@@ -765,6 +767,195 @@ void main() {
       expect(active2!.id, equals(patient2.id));
       expect(active2.name, equals('Grandpa Joe'));
       expect(active2.isCaregiverMirror, isTrue);
+    });
+
+    test('Document generation test harness verifies that selected modules and date filtering reflect accurately in the compiled PDF document structure', () async {
+      final now = DateTime.utc(2026, 9, 9, 12, 0);
+
+      // 1. Establish Patient on Hemodialysis
+      final patient = await harness.createPatient(
+        name: 'Sarah Connor',
+        diagnosis: 'hemodialysis',
+        prescribedDryWeightKg: 62.0,
+        dailyFluidAllowanceMl: 1400,
+        vascularAccessType: 'arteriovenousFistula',
+        fistulaArmLocation: 'leftArm',
+        isCaregiverMirror: false,
+      );
+
+      // 2. Populate longitudinal clinical dataset across 30 days
+      // Dialysis session 3 days ago (within 7d, 14d, 30d)
+      final sessionRecent = await harness.recordDialysisSession(
+        patientId: patient.id,
+        sessionType: 'hemodialysis',
+        startedAt: now.subtract(const Duration(days: 3)),
+        preWeightKg: 64.2,
+        postWeightKg: 62.1,
+        calculatedInterdialyticWeightGainKg: 2.2,
+        calculatedUltrafiltrationGoalMl: 2200,
+        calculatedPostWeightDifferenceKg: 0.1,
+        actualFluidRemovedMl: 2100,
+      );
+
+      // Dialysis session 10 days ago (within 14d and 30d, but outside 7d)
+      final sessionMedium = await harness.recordDialysisSession(
+        patientId: patient.id,
+        sessionType: 'hemodialysis',
+        startedAt: now.subtract(const Duration(days: 10)),
+        preWeightKg: 64.5,
+        postWeightKg: 62.0,
+        calculatedInterdialyticWeightGainKg: 2.5,
+        calculatedUltrafiltrationGoalMl: 2500,
+        calculatedPostWeightDifferenceKg: 0.0,
+        actualFluidRemovedMl: 2400,
+      );
+
+      // Dialysis session 22 days ago (within 30d, but outside 7d and 14d)
+      await harness.recordDialysisSession(
+        patientId: patient.id,
+        sessionType: 'hemodialysis',
+        startedAt: now.subtract(const Duration(days: 22)),
+        preWeightKg: 65.0,
+        postWeightKg: 62.2,
+      );
+
+      // Blood pressure logs: 1d ago, 12d ago, 25d ago
+      final bpRecent = await harness.recordBloodPressure(
+        patientId: patient.id,
+        systolic: 122,
+        diastolic: 78,
+        pulse: 70,
+        armUsed: 'rightArm',
+        recordedAt: now.subtract(const Duration(days: 1)),
+      );
+      final bpMedium = await harness.recordBloodPressure(
+        patientId: patient.id,
+        systolic: 130,
+        diastolic: 84,
+        pulse: 76,
+        armUsed: 'rightArm',
+        recordedAt: now.subtract(const Duration(days: 12)),
+      );
+      await harness.recordBloodPressure(
+        patientId: patient.id,
+        systolic: 138,
+        diastolic: 88,
+        pulse: 82,
+        armUsed: 'rightArm',
+        recordedAt: now.subtract(const Duration(days: 25)),
+      );
+
+      // Access inspection & catheter events
+      await harness.recordAccessInspection(
+        patientId: patient.id,
+        accessType: 'arteriovenousFistula',
+        anatomicalLocation: 'leftArm',
+        thrillPresent: true,
+        bruitPresent: true,
+        recordedAt: now.subtract(const Duration(days: 3)),
+      );
+      await harness.recordCatheterInsertion(
+        patientId: patient.id,
+        insertionDate: now.subtract(const Duration(days: 5)),
+        notes: 'Clinical catheter event',
+      );
+
+      // 3. Test 7-Day Window Filter
+      final config7d = ModularReportConfig(
+        dateWindow: ReportDateWindow.last7Days,
+        enabledModules: {
+          ClinicalReportModule.patientDemographicsAndDiagnosis,
+          ClinicalReportModule.weightTrends,
+          ClinicalReportModule.bloodPressureAndPulse,
+        },
+      );
+      final data7d = await harness.compileModularClinicalReportData(
+        patientId: patient.id,
+        config: config7d,
+        asOf: now,
+      );
+      expect(data7d.dialysisSessions.length, equals(1));
+      expect(data7d.dialysisSessions.first.id, equals(sessionRecent.id));
+      expect(data7d.bloodPressureLogs.length, equals(1));
+      expect(data7d.bloodPressureLogs.first.id, equals(bpRecent.id));
+
+      final pdf7dBytes = await harness.generateModularClinicalReportPdf(
+        patientId: patient.id,
+        config: config7d,
+        asOf: now,
+      );
+      expect(pdf7dBytes, isNotEmpty);
+      expect(utf8.decode(pdf7dBytes.sublist(0, 5)), equals('%PDF-'));
+
+      // 4. Test 14-Day Window Filter
+      final config14d = ModularReportConfig(
+        dateWindow: ReportDateWindow.last14Days,
+        enabledModules: {
+          ClinicalReportModule.patientDemographicsAndDiagnosis,
+          ClinicalReportModule.weightTrends,
+          ClinicalReportModule.bloodPressureAndPulse,
+        },
+      );
+      final data14d = await harness.compileModularClinicalReportData(
+        patientId: patient.id,
+        config: config14d,
+        asOf: now,
+      );
+      expect(data14d.dialysisSessions.length, equals(2));
+      expect(data14d.dialysisSessions.map((s) => s.id), containsAll([sessionRecent.id, sessionMedium.id]));
+      expect(data14d.bloodPressureLogs.length, equals(2));
+      expect(data14d.bloodPressureLogs.map((b) => b.id), containsAll([bpRecent.id, bpMedium.id]));
+
+      // 5. Test 30-Day Window Filter
+      final config30d = ModularReportConfig(
+        dateWindow: ReportDateWindow.last30Days,
+        enabledModules: {
+          ClinicalReportModule.patientDemographicsAndDiagnosis,
+          ClinicalReportModule.weightTrends,
+          ClinicalReportModule.bloodPressureAndPulse,
+        },
+      );
+      final data30d = await harness.compileModularClinicalReportData(
+        patientId: patient.id,
+        config: config30d,
+        asOf: now,
+      );
+      expect(data30d.dialysisSessions.length, equals(3));
+      expect(data30d.bloodPressureLogs.length, equals(3));
+
+      // 6. Test Selective Module Inclusion/Exclusion
+      final configSelective = ModularReportConfig(
+        dateWindow: ReportDateWindow.last30Days,
+        enabledModules: {
+          ClinicalReportModule.patientDemographicsAndDiagnosis,
+          ClinicalReportModule.bloodPressureAndPulse,
+        },
+      );
+      final dataSelective = await harness.compileModularClinicalReportData(
+        patientId: patient.id,
+        config: configSelective,
+        asOf: now,
+      );
+      expect(dataSelective.dialysisSessions, isEmpty);
+      expect(dataSelective.bloodPressureLogs.length, equals(3));
+      expect(dataSelective.accessInspections, isEmpty);
+      expect(dataSelective.catheterEvents, isEmpty);
+
+      final pdfSelectiveBytes = await harness.generateModularClinicalReportPdf(
+        patientId: patient.id,
+        config: configSelective,
+        asOf: now,
+        compress: false,
+      );
+      expect(pdfSelectiveBytes, isNotEmpty);
+      expect(utf8.decode(pdfSelectiveBytes.sublist(0, 5)), equals('%PDF-'));
+
+      final pdfContent = String.fromCharCodes(pdfSelectiveBytes);
+      expect(pdfContent, contains('[(Demographics)]'));
+      expect(pdfContent, contains('[(Hemodynamic)]'));
+      expect(pdfContent, isNot(contains('Pre/Post/Prescribed')));
+      expect(pdfContent, isNot(contains('[(Intake)]')));
+      expect(pdfContent, isNot(contains('[(Lifespan)]')));
     });
   });
 }
