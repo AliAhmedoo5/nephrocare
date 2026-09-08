@@ -59,6 +59,17 @@ class $PatientsTable extends Patients with TableInfo<$PatientsTable, Patient> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _vascularAccessTypeMeta =
+      const VerificationMeta('vascularAccessType');
+  @override
+  late final GeneratedColumn<String> vascularAccessType =
+      GeneratedColumn<String>(
+        'vascular_access_type',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _fistulaArmLocationMeta =
       const VerificationMeta('fistulaArmLocation');
   @override
@@ -116,6 +127,7 @@ class $PatientsTable extends Patients with TableInfo<$PatientsTable, Patient> {
     diagnosis,
     prescribedDryWeightKg,
     dailyFluidAllowanceMl,
+    vascularAccessType,
     fistulaArmLocation,
     isCaregiverMirror,
     createdAt,
@@ -167,6 +179,15 @@ class $PatientsTable extends Patients with TableInfo<$PatientsTable, Patient> {
         dailyFluidAllowanceMl.isAcceptableOrUnknown(
           data['daily_fluid_allowance_ml']!,
           _dailyFluidAllowanceMlMeta,
+        ),
+      );
+    }
+    if (data.containsKey('vascular_access_type')) {
+      context.handle(
+        _vascularAccessTypeMeta,
+        vascularAccessType.isAcceptableOrUnknown(
+          data['vascular_access_type']!,
+          _vascularAccessTypeMeta,
         ),
       );
     }
@@ -229,6 +250,10 @@ class $PatientsTable extends Patients with TableInfo<$PatientsTable, Patient> {
         DriftSqlType.int,
         data['${effectivePrefix}daily_fluid_allowance_ml'],
       ),
+      vascularAccessType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}vascular_access_type'],
+      ),
       fistulaArmLocation: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}fistula_arm_location'],
@@ -261,6 +286,9 @@ class Patient extends DataClass implements Insertable<Patient> {
   final double? prescribedDryWeightKg;
   final int? dailyFluidAllowanceMl;
 
+  /// Type of vascular access (e.g., 'arteriovenousFistula', 'arteriovenousGraft', 'dialysisCentralLine', 'peritonealDialysisAccess', 'none').
+  final String? vascularAccessType;
+
   /// Designated arm bearing vascular access (e.g., 'leftArm', 'rightArm', 'none').
   /// Used to enforce the Fistula Arm Safety Flag per ADR-0003.
   final String? fistulaArmLocation;
@@ -273,6 +301,7 @@ class Patient extends DataClass implements Insertable<Patient> {
     required this.diagnosis,
     this.prescribedDryWeightKg,
     this.dailyFluidAllowanceMl,
+    this.vascularAccessType,
     this.fistulaArmLocation,
     required this.isCaregiverMirror,
     required this.createdAt,
@@ -289,6 +318,9 @@ class Patient extends DataClass implements Insertable<Patient> {
     }
     if (!nullToAbsent || dailyFluidAllowanceMl != null) {
       map['daily_fluid_allowance_ml'] = Variable<int>(dailyFluidAllowanceMl);
+    }
+    if (!nullToAbsent || vascularAccessType != null) {
+      map['vascular_access_type'] = Variable<String>(vascularAccessType);
     }
     if (!nullToAbsent || fistulaArmLocation != null) {
       map['fistula_arm_location'] = Variable<String>(fistulaArmLocation);
@@ -310,6 +342,9 @@ class Patient extends DataClass implements Insertable<Patient> {
       dailyFluidAllowanceMl: dailyFluidAllowanceMl == null && nullToAbsent
           ? const Value.absent()
           : Value(dailyFluidAllowanceMl),
+      vascularAccessType: vascularAccessType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(vascularAccessType),
       fistulaArmLocation: fistulaArmLocation == null && nullToAbsent
           ? const Value.absent()
           : Value(fistulaArmLocation),
@@ -334,6 +369,9 @@ class Patient extends DataClass implements Insertable<Patient> {
       dailyFluidAllowanceMl: serializer.fromJson<int?>(
         json['dailyFluidAllowanceMl'],
       ),
+      vascularAccessType: serializer.fromJson<String?>(
+        json['vascularAccessType'],
+      ),
       fistulaArmLocation: serializer.fromJson<String?>(
         json['fistulaArmLocation'],
       ),
@@ -353,6 +391,7 @@ class Patient extends DataClass implements Insertable<Patient> {
         prescribedDryWeightKg,
       ),
       'dailyFluidAllowanceMl': serializer.toJson<int?>(dailyFluidAllowanceMl),
+      'vascularAccessType': serializer.toJson<String?>(vascularAccessType),
       'fistulaArmLocation': serializer.toJson<String?>(fistulaArmLocation),
       'isCaregiverMirror': serializer.toJson<bool>(isCaregiverMirror),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -366,6 +405,7 @@ class Patient extends DataClass implements Insertable<Patient> {
     String? diagnosis,
     Value<double?> prescribedDryWeightKg = const Value.absent(),
     Value<int?> dailyFluidAllowanceMl = const Value.absent(),
+    Value<String?> vascularAccessType = const Value.absent(),
     Value<String?> fistulaArmLocation = const Value.absent(),
     bool? isCaregiverMirror,
     DateTime? createdAt,
@@ -380,6 +420,9 @@ class Patient extends DataClass implements Insertable<Patient> {
     dailyFluidAllowanceMl: dailyFluidAllowanceMl.present
         ? dailyFluidAllowanceMl.value
         : this.dailyFluidAllowanceMl,
+    vascularAccessType: vascularAccessType.present
+        ? vascularAccessType.value
+        : this.vascularAccessType,
     fistulaArmLocation: fistulaArmLocation.present
         ? fistulaArmLocation.value
         : this.fistulaArmLocation,
@@ -398,6 +441,9 @@ class Patient extends DataClass implements Insertable<Patient> {
       dailyFluidAllowanceMl: data.dailyFluidAllowanceMl.present
           ? data.dailyFluidAllowanceMl.value
           : this.dailyFluidAllowanceMl,
+      vascularAccessType: data.vascularAccessType.present
+          ? data.vascularAccessType.value
+          : this.vascularAccessType,
       fistulaArmLocation: data.fistulaArmLocation.present
           ? data.fistulaArmLocation.value
           : this.fistulaArmLocation,
@@ -417,6 +463,7 @@ class Patient extends DataClass implements Insertable<Patient> {
           ..write('diagnosis: $diagnosis, ')
           ..write('prescribedDryWeightKg: $prescribedDryWeightKg, ')
           ..write('dailyFluidAllowanceMl: $dailyFluidAllowanceMl, ')
+          ..write('vascularAccessType: $vascularAccessType, ')
           ..write('fistulaArmLocation: $fistulaArmLocation, ')
           ..write('isCaregiverMirror: $isCaregiverMirror, ')
           ..write('createdAt: $createdAt, ')
@@ -432,6 +479,7 @@ class Patient extends DataClass implements Insertable<Patient> {
     diagnosis,
     prescribedDryWeightKg,
     dailyFluidAllowanceMl,
+    vascularAccessType,
     fistulaArmLocation,
     isCaregiverMirror,
     createdAt,
@@ -446,6 +494,7 @@ class Patient extends DataClass implements Insertable<Patient> {
           other.diagnosis == this.diagnosis &&
           other.prescribedDryWeightKg == this.prescribedDryWeightKg &&
           other.dailyFluidAllowanceMl == this.dailyFluidAllowanceMl &&
+          other.vascularAccessType == this.vascularAccessType &&
           other.fistulaArmLocation == this.fistulaArmLocation &&
           other.isCaregiverMirror == this.isCaregiverMirror &&
           other.createdAt == this.createdAt &&
@@ -458,6 +507,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
   final Value<String> diagnosis;
   final Value<double?> prescribedDryWeightKg;
   final Value<int?> dailyFluidAllowanceMl;
+  final Value<String?> vascularAccessType;
   final Value<String?> fistulaArmLocation;
   final Value<bool> isCaregiverMirror;
   final Value<DateTime> createdAt;
@@ -469,6 +519,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
     this.diagnosis = const Value.absent(),
     this.prescribedDryWeightKg = const Value.absent(),
     this.dailyFluidAllowanceMl = const Value.absent(),
+    this.vascularAccessType = const Value.absent(),
     this.fistulaArmLocation = const Value.absent(),
     this.isCaregiverMirror = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -481,6 +532,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
     required String diagnosis,
     this.prescribedDryWeightKg = const Value.absent(),
     this.dailyFluidAllowanceMl = const Value.absent(),
+    this.vascularAccessType = const Value.absent(),
     this.fistulaArmLocation = const Value.absent(),
     this.isCaregiverMirror = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -494,6 +546,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
     Expression<String>? diagnosis,
     Expression<double>? prescribedDryWeightKg,
     Expression<int>? dailyFluidAllowanceMl,
+    Expression<String>? vascularAccessType,
     Expression<String>? fistulaArmLocation,
     Expression<bool>? isCaregiverMirror,
     Expression<DateTime>? createdAt,
@@ -508,6 +561,8 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
         'prescribed_dry_weight_kg': prescribedDryWeightKg,
       if (dailyFluidAllowanceMl != null)
         'daily_fluid_allowance_ml': dailyFluidAllowanceMl,
+      if (vascularAccessType != null)
+        'vascular_access_type': vascularAccessType,
       if (fistulaArmLocation != null)
         'fistula_arm_location': fistulaArmLocation,
       if (isCaregiverMirror != null) 'is_caregiver_mirror': isCaregiverMirror,
@@ -523,6 +578,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
     Value<String>? diagnosis,
     Value<double?>? prescribedDryWeightKg,
     Value<int?>? dailyFluidAllowanceMl,
+    Value<String?>? vascularAccessType,
     Value<String?>? fistulaArmLocation,
     Value<bool>? isCaregiverMirror,
     Value<DateTime>? createdAt,
@@ -537,6 +593,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
           prescribedDryWeightKg ?? this.prescribedDryWeightKg,
       dailyFluidAllowanceMl:
           dailyFluidAllowanceMl ?? this.dailyFluidAllowanceMl,
+      vascularAccessType: vascularAccessType ?? this.vascularAccessType,
       fistulaArmLocation: fistulaArmLocation ?? this.fistulaArmLocation,
       isCaregiverMirror: isCaregiverMirror ?? this.isCaregiverMirror,
       createdAt: createdAt ?? this.createdAt,
@@ -567,6 +624,9 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
         dailyFluidAllowanceMl.value,
       );
     }
+    if (vascularAccessType.present) {
+      map['vascular_access_type'] = Variable<String>(vascularAccessType.value);
+    }
     if (fistulaArmLocation.present) {
       map['fistula_arm_location'] = Variable<String>(fistulaArmLocation.value);
     }
@@ -593,6 +653,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
           ..write('diagnosis: $diagnosis, ')
           ..write('prescribedDryWeightKg: $prescribedDryWeightKg, ')
           ..write('dailyFluidAllowanceMl: $dailyFluidAllowanceMl, ')
+          ..write('vascularAccessType: $vascularAccessType, ')
           ..write('fistulaArmLocation: $fistulaArmLocation, ')
           ..write('isCaregiverMirror: $isCaregiverMirror, ')
           ..write('createdAt: $createdAt, ')
@@ -4564,6 +4625,7 @@ typedef $$PatientsTableCreateCompanionBuilder =
       required String diagnosis,
       Value<double?> prescribedDryWeightKg,
       Value<int?> dailyFluidAllowanceMl,
+      Value<String?> vascularAccessType,
       Value<String?> fistulaArmLocation,
       Value<bool> isCaregiverMirror,
       Value<DateTime> createdAt,
@@ -4577,6 +4639,7 @@ typedef $$PatientsTableUpdateCompanionBuilder =
       Value<String> diagnosis,
       Value<double?> prescribedDryWeightKg,
       Value<int?> dailyFluidAllowanceMl,
+      Value<String?> vascularAccessType,
       Value<String?> fistulaArmLocation,
       Value<bool> isCaregiverMirror,
       Value<DateTime> createdAt,
@@ -4740,6 +4803,11 @@ class $$PatientsTableFilterComposer
 
   ColumnFilters<int> get dailyFluidAllowanceMl => $composableBuilder(
     column: $table.dailyFluidAllowanceMl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get vascularAccessType => $composableBuilder(
+    column: $table.vascularAccessType,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4948,6 +5016,11 @@ class $$PatientsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get vascularAccessType => $composableBuilder(
+    column: $table.vascularAccessType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get fistulaArmLocation => $composableBuilder(
     column: $table.fistulaArmLocation,
     builder: (column) => ColumnOrderings(column),
@@ -4994,6 +5067,11 @@ class $$PatientsTableAnnotationComposer
 
   GeneratedColumn<int> get dailyFluidAllowanceMl => $composableBuilder(
     column: $table.dailyFluidAllowanceMl,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get vascularAccessType => $composableBuilder(
+    column: $table.vascularAccessType,
     builder: (column) => column,
   );
 
@@ -5206,6 +5284,7 @@ class $$PatientsTableTableManager
                 Value<String> diagnosis = const Value.absent(),
                 Value<double?> prescribedDryWeightKg = const Value.absent(),
                 Value<int?> dailyFluidAllowanceMl = const Value.absent(),
+                Value<String?> vascularAccessType = const Value.absent(),
                 Value<String?> fistulaArmLocation = const Value.absent(),
                 Value<bool> isCaregiverMirror = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -5217,6 +5296,7 @@ class $$PatientsTableTableManager
                 diagnosis: diagnosis,
                 prescribedDryWeightKg: prescribedDryWeightKg,
                 dailyFluidAllowanceMl: dailyFluidAllowanceMl,
+                vascularAccessType: vascularAccessType,
                 fistulaArmLocation: fistulaArmLocation,
                 isCaregiverMirror: isCaregiverMirror,
                 createdAt: createdAt,
@@ -5230,6 +5310,7 @@ class $$PatientsTableTableManager
                 required String diagnosis,
                 Value<double?> prescribedDryWeightKg = const Value.absent(),
                 Value<int?> dailyFluidAllowanceMl = const Value.absent(),
+                Value<String?> vascularAccessType = const Value.absent(),
                 Value<String?> fistulaArmLocation = const Value.absent(),
                 Value<bool> isCaregiverMirror = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -5241,6 +5322,7 @@ class $$PatientsTableTableManager
                 diagnosis: diagnosis,
                 prescribedDryWeightKg: prescribedDryWeightKg,
                 dailyFluidAllowanceMl: dailyFluidAllowanceMl,
+                vascularAccessType: vascularAccessType,
                 fistulaArmLocation: fistulaArmLocation,
                 isCaregiverMirror: isCaregiverMirror,
                 createdAt: createdAt,

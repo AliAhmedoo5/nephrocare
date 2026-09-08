@@ -31,6 +31,7 @@ class NephroTestHarness {
     required String diagnosis,
     double? prescribedDryWeightKg,
     int? dailyFluidAllowanceMl,
+    String? vascularAccessType,
     String? fistulaArmLocation,
     bool isCaregiverMirror = false,
   }) async {
@@ -41,6 +42,7 @@ class NephroTestHarness {
       diagnosis: diagnosis,
       prescribedDryWeightKg: drift.Value(prescribedDryWeightKg),
       dailyFluidAllowanceMl: drift.Value(dailyFluidAllowanceMl),
+      vascularAccessType: drift.Value(vascularAccessType),
       fistulaArmLocation: drift.Value(fistulaArmLocation),
       isCaregiverMirror: drift.Value(isCaregiverMirror),
     );

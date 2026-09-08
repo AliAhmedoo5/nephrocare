@@ -13,6 +13,8 @@ class Patients extends Table {
   TextColumn get diagnosis => text()(); // hemodialysis, peritonealDialysis, nonDialysisCkd, urologicalCatheter
   RealColumn get prescribedDryWeightKg => real().nullable()();
   IntColumn get dailyFluidAllowanceMl => integer().nullable()();
+  /// Type of vascular access (e.g., 'arteriovenousFistula', 'arteriovenousGraft', 'dialysisCentralLine', 'peritonealDialysisAccess', 'none').
+  TextColumn get vascularAccessType => text().nullable()();
   /// Designated arm bearing vascular access (e.g., 'leftArm', 'rightArm', 'none').
   /// Used to enforce the Fistula Arm Safety Flag per ADR-0003.
   TextColumn get fistulaArmLocation => text().nullable()();
