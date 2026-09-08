@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../blood_pressure/presentation/blood_pressure_entry_screen.dart';
+import '../../dialysis/presentation/hemodialysis_check_in_screen.dart';
+import '../../dialysis/presentation/hemodialysis_post_session_screen.dart';
 import '../../profile/domain/clinical_condition.dart';
 import '../../profile/presentation/patient_profile_setup_screen.dart';
 import 'condition_adaptive_grid.dart';
@@ -203,6 +205,22 @@ class DashboardScreen extends ConsumerWidget {
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (context) => BloodPressureEntryScreen(
+                          patient: patient,
+                        ),
+                      ),
+                    );
+                  } else if (card.id == 'hd_check_in' || card.title == 'Check-in') {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => HemodialysisCheckInScreen(
+                          patient: patient,
+                        ),
+                      ),
+                    );
+                  } else if (card.id == 'hd_post_dialysis' || card.title == 'Post-Dialysis Log') {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => HemodialysisPostSessionScreen(
                           patient: patient,
                         ),
                       ),

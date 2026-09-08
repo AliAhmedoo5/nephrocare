@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../database/app_database.dart';
 import '../database/database_provider.dart';
 import '../../features/blood_pressure/data/blood_pressure_repository.dart';
+import '../../features/dialysis/data/dialysis_session_repository.dart';
 
 /// Test harness establishing the Unified Application & State Seam.
 ///
@@ -62,6 +63,7 @@ class NephroTestHarness {
     double? postWeightKg,
     double? calculatedInterdialyticWeightGainKg,
     int? calculatedUltrafiltrationGoalMl,
+    double? calculatedPostWeightDifferenceKg,
     int? actualFluidRemovedMl,
     String? notes,
     String? symptoms,
@@ -77,12 +79,77 @@ class NephroTestHarness {
       postWeightKg: drift.Value(postWeightKg),
       calculatedInterdialyticWeightGainKg: drift.Value(calculatedInterdialyticWeightGainKg),
       calculatedUltrafiltrationGoalMl: drift.Value(calculatedUltrafiltrationGoalMl),
+      calculatedPostWeightDifferenceKg: drift.Value(calculatedPostWeightDifferenceKg),
       actualFluidRemovedMl: drift.Value(actualFluidRemovedMl),
       notes: drift.Value(notes),
       symptoms: drift.Value(symptoms),
     );
     await database.into(database.dialysisSessions).insert(companion);
     return (database.select(database.dialysisSessions)..where((tbl) => tbl.id.equals(sessionId))).getSingle();
+  }
+
+  /// Clinical helper to perform a pre-dialysis check-in, computing IDWG, UF goal, and logging access inspection.
+  Future<DialysisSession> recordPreDialysisCheckIn({
+    String? id,
+    required String patientId,
+    required double preWeightKg,
+    int volumeAllowanceMl = 0,
+    String? notes,
+    DateTime? startedAt,
+    bool? thrillPresent,
+    bool? bruitPresent,
+    bool? rednessPresent,
+    bool? swellingPresent,
+    bool? dischargePresent,
+    bool? painPresent,
+    String? inspectionNotes,
+  }) async {
+    final repository = DialysisSessionRepository(database);
+    return repository.recordPreDialysisCheckIn(
+      id: id,
+      patientId: patientId,
+      preWeightKg: preWeightKg,
+      volumeAllowanceMl: volumeAllowanceMl,
+      notes: notes,
+      startedAt: startedAt,
+      thrillPresent: thrillPresent,
+      bruitPresent: bruitPresent,
+      rednessPresent: rednessPresent,
+      swellingPresent: swellingPresent,
+      dischargePresent: dischargePresent,
+      painPresent: painPresent,
+      inspectionNotes: inspectionNotes,
+    );
+  }
+
+  /// Clinical helper to complete a dialysis session with post-weight, variance calculation, and symptoms.
+  Future<DialysisSession> recordPostDialysisSession({
+    required String sessionId,
+    required double postWeightKg,
+    int? actualFluidRemovedMl,
+    List<String>? symptoms,
+    String? notes,
+    DateTime? endedAt,
+  }) async {
+    final repository = DialysisSessionRepository(database);
+    return repository.recordPostDialysisSession(
+      sessionId: sessionId,
+      postWeightKg: postWeightKg,
+      actualFluidRemovedMl: actualFluidRemovedMl,
+      symptoms: symptoms,
+      notes: notes,
+      endedAt: endedAt,
+    );
+  }
+
+  /// Clinical helper to query dialysis sessions for a patient ordered most recent first.
+  Future<List<DialysisSession>> getDialysisSessions(String patientId) async {
+    return DialysisSessionRepository(database).getSessions(patientId);
+  }
+
+  /// Clinical helper to query vascular access inspections for a patient ordered most recent first.
+  Future<List<AccessInspection>> getAccessInspections(String patientId) async {
+    return DialysisSessionRepository(database).getAccessInspections(patientId);
   }
 
   /// Clinical helper to log Blood Pressure with arm validation and Fistula Arm Safety Flag enforcement.
@@ -193,6 +260,7 @@ class NephroTestHarness {
     bool? thrillPresent,
     bool? bruitPresent,
     bool? rednessPresent,
+    bool? swellingPresent,
     bool? dischargePresent,
     bool? painPresent,
     String? notes,
@@ -207,6 +275,7 @@ class NephroTestHarness {
       thrillPresent: drift.Value(thrillPresent),
       bruitPresent: drift.Value(bruitPresent),
       rednessPresent: drift.Value(rednessPresent),
+      swellingPresent: drift.Value(swellingPresent),
       dischargePresent: drift.Value(dischargePresent),
       painPresent: drift.Value(painPresent),
       notes: drift.Value(notes),

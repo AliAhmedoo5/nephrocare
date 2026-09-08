@@ -771,6 +771,17 @@ class $DialysisSessionsTable extends DialysisSessions
         type: DriftSqlType.int,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _calculatedPostWeightDifferenceKgMeta =
+      const VerificationMeta('calculatedPostWeightDifferenceKg');
+  @override
+  late final GeneratedColumn<double> calculatedPostWeightDifferenceKg =
+      GeneratedColumn<double>(
+        'calculated_post_weight_difference_kg',
+        aliasedName,
+        true,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _actualFluidRemovedMlMeta =
       const VerificationMeta('actualFluidRemovedMl');
   @override
@@ -836,6 +847,7 @@ class $DialysisSessionsTable extends DialysisSessions
     postWeightKg,
     calculatedInterdialyticWeightGainKg,
     calculatedUltrafiltrationGoalMl,
+    calculatedPostWeightDifferenceKg,
     actualFluidRemovedMl,
     notes,
     symptoms,
@@ -926,6 +938,15 @@ class $DialysisSessionsTable extends DialysisSessions
         ),
       );
     }
+    if (data.containsKey('calculated_post_weight_difference_kg')) {
+      context.handle(
+        _calculatedPostWeightDifferenceKgMeta,
+        calculatedPostWeightDifferenceKg.isAcceptableOrUnknown(
+          data['calculated_post_weight_difference_kg']!,
+          _calculatedPostWeightDifferenceKgMeta,
+        ),
+      );
+    }
     if (data.containsKey('actual_fluid_removed_ml')) {
       context.handle(
         _actualFluidRemovedMlMeta,
@@ -1004,6 +1025,10 @@ class $DialysisSessionsTable extends DialysisSessions
         DriftSqlType.int,
         data['${effectivePrefix}calculated_ultrafiltration_goal_ml'],
       ),
+      calculatedPostWeightDifferenceKg: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}calculated_post_weight_difference_kg'],
+      ),
       actualFluidRemovedMl: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}actual_fluid_removed_ml'],
@@ -1043,6 +1068,7 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
   final double? postWeightKg;
   final double? calculatedInterdialyticWeightGainKg;
   final int? calculatedUltrafiltrationGoalMl;
+  final double? calculatedPostWeightDifferenceKg;
   final int? actualFluidRemovedMl;
   final String? notes;
   final String? symptoms;
@@ -1058,6 +1084,7 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
     this.postWeightKg,
     this.calculatedInterdialyticWeightGainKg,
     this.calculatedUltrafiltrationGoalMl,
+    this.calculatedPostWeightDifferenceKg,
     this.actualFluidRemovedMl,
     this.notes,
     this.symptoms,
@@ -1088,6 +1115,11 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
     if (!nullToAbsent || calculatedUltrafiltrationGoalMl != null) {
       map['calculated_ultrafiltration_goal_ml'] = Variable<int>(
         calculatedUltrafiltrationGoalMl,
+      );
+    }
+    if (!nullToAbsent || calculatedPostWeightDifferenceKg != null) {
+      map['calculated_post_weight_difference_kg'] = Variable<double>(
+        calculatedPostWeightDifferenceKg,
       );
     }
     if (!nullToAbsent || actualFluidRemovedMl != null) {
@@ -1127,6 +1159,10 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
           calculatedUltrafiltrationGoalMl == null && nullToAbsent
           ? const Value.absent()
           : Value(calculatedUltrafiltrationGoalMl),
+      calculatedPostWeightDifferenceKg:
+          calculatedPostWeightDifferenceKg == null && nullToAbsent
+          ? const Value.absent()
+          : Value(calculatedPostWeightDifferenceKg),
       actualFluidRemovedMl: actualFluidRemovedMl == null && nullToAbsent
           ? const Value.absent()
           : Value(actualFluidRemovedMl),
@@ -1160,6 +1196,9 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
       calculatedUltrafiltrationGoalMl: serializer.fromJson<int?>(
         json['calculatedUltrafiltrationGoalMl'],
       ),
+      calculatedPostWeightDifferenceKg: serializer.fromJson<double?>(
+        json['calculatedPostWeightDifferenceKg'],
+      ),
       actualFluidRemovedMl: serializer.fromJson<int?>(
         json['actualFluidRemovedMl'],
       ),
@@ -1186,6 +1225,9 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
       'calculatedUltrafiltrationGoalMl': serializer.toJson<int?>(
         calculatedUltrafiltrationGoalMl,
       ),
+      'calculatedPostWeightDifferenceKg': serializer.toJson<double?>(
+        calculatedPostWeightDifferenceKg,
+      ),
       'actualFluidRemovedMl': serializer.toJson<int?>(actualFluidRemovedMl),
       'notes': serializer.toJson<String?>(notes),
       'symptoms': serializer.toJson<String?>(symptoms),
@@ -1204,6 +1246,7 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
     Value<double?> postWeightKg = const Value.absent(),
     Value<double?> calculatedInterdialyticWeightGainKg = const Value.absent(),
     Value<int?> calculatedUltrafiltrationGoalMl = const Value.absent(),
+    Value<double?> calculatedPostWeightDifferenceKg = const Value.absent(),
     Value<int?> actualFluidRemovedMl = const Value.absent(),
     Value<String?> notes = const Value.absent(),
     Value<String?> symptoms = const Value.absent(),
@@ -1224,6 +1267,9 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
     calculatedUltrafiltrationGoalMl: calculatedUltrafiltrationGoalMl.present
         ? calculatedUltrafiltrationGoalMl.value
         : this.calculatedUltrafiltrationGoalMl,
+    calculatedPostWeightDifferenceKg: calculatedPostWeightDifferenceKg.present
+        ? calculatedPostWeightDifferenceKg.value
+        : this.calculatedPostWeightDifferenceKg,
     actualFluidRemovedMl: actualFluidRemovedMl.present
         ? actualFluidRemovedMl.value
         : this.actualFluidRemovedMl,
@@ -1255,6 +1301,10 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
           data.calculatedUltrafiltrationGoalMl.present
           ? data.calculatedUltrafiltrationGoalMl.value
           : this.calculatedUltrafiltrationGoalMl,
+      calculatedPostWeightDifferenceKg:
+          data.calculatedPostWeightDifferenceKg.present
+          ? data.calculatedPostWeightDifferenceKg.value
+          : this.calculatedPostWeightDifferenceKg,
       actualFluidRemovedMl: data.actualFluidRemovedMl.present
           ? data.actualFluidRemovedMl.value
           : this.actualFluidRemovedMl,
@@ -1281,6 +1331,9 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
           ..write(
             'calculatedUltrafiltrationGoalMl: $calculatedUltrafiltrationGoalMl, ',
           )
+          ..write(
+            'calculatedPostWeightDifferenceKg: $calculatedPostWeightDifferenceKg, ',
+          )
           ..write('actualFluidRemovedMl: $actualFluidRemovedMl, ')
           ..write('notes: $notes, ')
           ..write('symptoms: $symptoms, ')
@@ -1301,6 +1354,7 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
     postWeightKg,
     calculatedInterdialyticWeightGainKg,
     calculatedUltrafiltrationGoalMl,
+    calculatedPostWeightDifferenceKg,
     actualFluidRemovedMl,
     notes,
     symptoms,
@@ -1322,6 +1376,8 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
               this.calculatedInterdialyticWeightGainKg &&
           other.calculatedUltrafiltrationGoalMl ==
               this.calculatedUltrafiltrationGoalMl &&
+          other.calculatedPostWeightDifferenceKg ==
+              this.calculatedPostWeightDifferenceKg &&
           other.actualFluidRemovedMl == this.actualFluidRemovedMl &&
           other.notes == this.notes &&
           other.symptoms == this.symptoms &&
@@ -1339,6 +1395,7 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
   final Value<double?> postWeightKg;
   final Value<double?> calculatedInterdialyticWeightGainKg;
   final Value<int?> calculatedUltrafiltrationGoalMl;
+  final Value<double?> calculatedPostWeightDifferenceKg;
   final Value<int?> actualFluidRemovedMl;
   final Value<String?> notes;
   final Value<String?> symptoms;
@@ -1355,6 +1412,7 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
     this.postWeightKg = const Value.absent(),
     this.calculatedInterdialyticWeightGainKg = const Value.absent(),
     this.calculatedUltrafiltrationGoalMl = const Value.absent(),
+    this.calculatedPostWeightDifferenceKg = const Value.absent(),
     this.actualFluidRemovedMl = const Value.absent(),
     this.notes = const Value.absent(),
     this.symptoms = const Value.absent(),
@@ -1372,6 +1430,7 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
     this.postWeightKg = const Value.absent(),
     this.calculatedInterdialyticWeightGainKg = const Value.absent(),
     this.calculatedUltrafiltrationGoalMl = const Value.absent(),
+    this.calculatedPostWeightDifferenceKg = const Value.absent(),
     this.actualFluidRemovedMl = const Value.absent(),
     this.notes = const Value.absent(),
     this.symptoms = const Value.absent(),
@@ -1391,6 +1450,7 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
     Expression<double>? postWeightKg,
     Expression<double>? calculatedInterdialyticWeightGainKg,
     Expression<int>? calculatedUltrafiltrationGoalMl,
+    Expression<double>? calculatedPostWeightDifferenceKg,
     Expression<int>? actualFluidRemovedMl,
     Expression<String>? notes,
     Expression<String>? symptoms,
@@ -1411,6 +1471,9 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
             calculatedInterdialyticWeightGainKg,
       if (calculatedUltrafiltrationGoalMl != null)
         'calculated_ultrafiltration_goal_ml': calculatedUltrafiltrationGoalMl,
+      if (calculatedPostWeightDifferenceKg != null)
+        'calculated_post_weight_difference_kg':
+            calculatedPostWeightDifferenceKg,
       if (actualFluidRemovedMl != null)
         'actual_fluid_removed_ml': actualFluidRemovedMl,
       if (notes != null) 'notes': notes,
@@ -1431,6 +1494,7 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
     Value<double?>? postWeightKg,
     Value<double?>? calculatedInterdialyticWeightGainKg,
     Value<int?>? calculatedUltrafiltrationGoalMl,
+    Value<double?>? calculatedPostWeightDifferenceKg,
     Value<int?>? actualFluidRemovedMl,
     Value<String?>? notes,
     Value<String?>? symptoms,
@@ -1452,6 +1516,9 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
       calculatedUltrafiltrationGoalMl:
           calculatedUltrafiltrationGoalMl ??
           this.calculatedUltrafiltrationGoalMl,
+      calculatedPostWeightDifferenceKg:
+          calculatedPostWeightDifferenceKg ??
+          this.calculatedPostWeightDifferenceKg,
       actualFluidRemovedMl: actualFluidRemovedMl ?? this.actualFluidRemovedMl,
       notes: notes ?? this.notes,
       symptoms: symptoms ?? this.symptoms,
@@ -1495,6 +1562,11 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
         calculatedUltrafiltrationGoalMl.value,
       );
     }
+    if (calculatedPostWeightDifferenceKg.present) {
+      map['calculated_post_weight_difference_kg'] = Variable<double>(
+        calculatedPostWeightDifferenceKg.value,
+      );
+    }
     if (actualFluidRemovedMl.present) {
       map['actual_fluid_removed_ml'] = Variable<int>(
         actualFluidRemovedMl.value,
@@ -1533,6 +1605,9 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
           )
           ..write(
             'calculatedUltrafiltrationGoalMl: $calculatedUltrafiltrationGoalMl, ',
+          )
+          ..write(
+            'calculatedPostWeightDifferenceKg: $calculatedPostWeightDifferenceKg, ',
           )
           ..write('actualFluidRemovedMl: $actualFluidRemovedMl, ')
           ..write('notes: $notes, ')
@@ -3868,6 +3943,20 @@ class $AccessInspectionsTable extends AccessInspections
       'CHECK ("redness_present" IN (0, 1))',
     ),
   );
+  static const VerificationMeta _swellingPresentMeta = const VerificationMeta(
+    'swellingPresent',
+  );
+  @override
+  late final GeneratedColumn<bool> swellingPresent = GeneratedColumn<bool>(
+    'swelling_present',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("swelling_present" IN (0, 1))',
+    ),
+  );
   static const VerificationMeta _dischargePresentMeta = const VerificationMeta(
     'dischargePresent',
   );
@@ -3949,6 +4038,7 @@ class $AccessInspectionsTable extends AccessInspections
     thrillPresent,
     bruitPresent,
     rednessPresent,
+    swellingPresent,
     dischargePresent,
     painPresent,
     notes,
@@ -4022,6 +4112,15 @@ class $AccessInspectionsTable extends AccessInspections
         rednessPresent.isAcceptableOrUnknown(
           data['redness_present']!,
           _rednessPresentMeta,
+        ),
+      );
+    }
+    if (data.containsKey('swelling_present')) {
+      context.handle(
+        _swellingPresentMeta,
+        swellingPresent.isAcceptableOrUnknown(
+          data['swelling_present']!,
+          _swellingPresentMeta,
         ),
       );
     }
@@ -4106,6 +4205,10 @@ class $AccessInspectionsTable extends AccessInspections
         DriftSqlType.bool,
         data['${effectivePrefix}redness_present'],
       ),
+      swellingPresent: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}swelling_present'],
+      ),
       dischargePresent: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}discharge_present'],
@@ -4148,6 +4251,7 @@ class AccessInspection extends DataClass
   final bool? thrillPresent;
   final bool? bruitPresent;
   final bool? rednessPresent;
+  final bool? swellingPresent;
   final bool? dischargePresent;
   final bool? painPresent;
   final String? notes;
@@ -4162,6 +4266,7 @@ class AccessInspection extends DataClass
     this.thrillPresent,
     this.bruitPresent,
     this.rednessPresent,
+    this.swellingPresent,
     this.dischargePresent,
     this.painPresent,
     this.notes,
@@ -4184,6 +4289,9 @@ class AccessInspection extends DataClass
     }
     if (!nullToAbsent || rednessPresent != null) {
       map['redness_present'] = Variable<bool>(rednessPresent);
+    }
+    if (!nullToAbsent || swellingPresent != null) {
+      map['swelling_present'] = Variable<bool>(swellingPresent);
     }
     if (!nullToAbsent || dischargePresent != null) {
       map['discharge_present'] = Variable<bool>(dischargePresent);
@@ -4215,6 +4323,9 @@ class AccessInspection extends DataClass
       rednessPresent: rednessPresent == null && nullToAbsent
           ? const Value.absent()
           : Value(rednessPresent),
+      swellingPresent: swellingPresent == null && nullToAbsent
+          ? const Value.absent()
+          : Value(swellingPresent),
       dischargePresent: dischargePresent == null && nullToAbsent
           ? const Value.absent()
           : Value(dischargePresent),
@@ -4245,6 +4356,7 @@ class AccessInspection extends DataClass
       thrillPresent: serializer.fromJson<bool?>(json['thrillPresent']),
       bruitPresent: serializer.fromJson<bool?>(json['bruitPresent']),
       rednessPresent: serializer.fromJson<bool?>(json['rednessPresent']),
+      swellingPresent: serializer.fromJson<bool?>(json['swellingPresent']),
       dischargePresent: serializer.fromJson<bool?>(json['dischargePresent']),
       painPresent: serializer.fromJson<bool?>(json['painPresent']),
       notes: serializer.fromJson<String?>(json['notes']),
@@ -4264,6 +4376,7 @@ class AccessInspection extends DataClass
       'thrillPresent': serializer.toJson<bool?>(thrillPresent),
       'bruitPresent': serializer.toJson<bool?>(bruitPresent),
       'rednessPresent': serializer.toJson<bool?>(rednessPresent),
+      'swellingPresent': serializer.toJson<bool?>(swellingPresent),
       'dischargePresent': serializer.toJson<bool?>(dischargePresent),
       'painPresent': serializer.toJson<bool?>(painPresent),
       'notes': serializer.toJson<String?>(notes),
@@ -4281,6 +4394,7 @@ class AccessInspection extends DataClass
     Value<bool?> thrillPresent = const Value.absent(),
     Value<bool?> bruitPresent = const Value.absent(),
     Value<bool?> rednessPresent = const Value.absent(),
+    Value<bool?> swellingPresent = const Value.absent(),
     Value<bool?> dischargePresent = const Value.absent(),
     Value<bool?> painPresent = const Value.absent(),
     Value<String?> notes = const Value.absent(),
@@ -4299,6 +4413,9 @@ class AccessInspection extends DataClass
     rednessPresent: rednessPresent.present
         ? rednessPresent.value
         : this.rednessPresent,
+    swellingPresent: swellingPresent.present
+        ? swellingPresent.value
+        : this.swellingPresent,
     dischargePresent: dischargePresent.present
         ? dischargePresent.value
         : this.dischargePresent,
@@ -4327,6 +4444,9 @@ class AccessInspection extends DataClass
       rednessPresent: data.rednessPresent.present
           ? data.rednessPresent.value
           : this.rednessPresent,
+      swellingPresent: data.swellingPresent.present
+          ? data.swellingPresent.value
+          : this.swellingPresent,
       dischargePresent: data.dischargePresent.present
           ? data.dischargePresent.value
           : this.dischargePresent,
@@ -4352,6 +4472,7 @@ class AccessInspection extends DataClass
           ..write('thrillPresent: $thrillPresent, ')
           ..write('bruitPresent: $bruitPresent, ')
           ..write('rednessPresent: $rednessPresent, ')
+          ..write('swellingPresent: $swellingPresent, ')
           ..write('dischargePresent: $dischargePresent, ')
           ..write('painPresent: $painPresent, ')
           ..write('notes: $notes, ')
@@ -4371,6 +4492,7 @@ class AccessInspection extends DataClass
     thrillPresent,
     bruitPresent,
     rednessPresent,
+    swellingPresent,
     dischargePresent,
     painPresent,
     notes,
@@ -4389,6 +4511,7 @@ class AccessInspection extends DataClass
           other.thrillPresent == this.thrillPresent &&
           other.bruitPresent == this.bruitPresent &&
           other.rednessPresent == this.rednessPresent &&
+          other.swellingPresent == this.swellingPresent &&
           other.dischargePresent == this.dischargePresent &&
           other.painPresent == this.painPresent &&
           other.notes == this.notes &&
@@ -4405,6 +4528,7 @@ class AccessInspectionsCompanion extends UpdateCompanion<AccessInspection> {
   final Value<bool?> thrillPresent;
   final Value<bool?> bruitPresent;
   final Value<bool?> rednessPresent;
+  final Value<bool?> swellingPresent;
   final Value<bool?> dischargePresent;
   final Value<bool?> painPresent;
   final Value<String?> notes;
@@ -4420,6 +4544,7 @@ class AccessInspectionsCompanion extends UpdateCompanion<AccessInspection> {
     this.thrillPresent = const Value.absent(),
     this.bruitPresent = const Value.absent(),
     this.rednessPresent = const Value.absent(),
+    this.swellingPresent = const Value.absent(),
     this.dischargePresent = const Value.absent(),
     this.painPresent = const Value.absent(),
     this.notes = const Value.absent(),
@@ -4436,6 +4561,7 @@ class AccessInspectionsCompanion extends UpdateCompanion<AccessInspection> {
     this.thrillPresent = const Value.absent(),
     this.bruitPresent = const Value.absent(),
     this.rednessPresent = const Value.absent(),
+    this.swellingPresent = const Value.absent(),
     this.dischargePresent = const Value.absent(),
     this.painPresent = const Value.absent(),
     this.notes = const Value.absent(),
@@ -4455,6 +4581,7 @@ class AccessInspectionsCompanion extends UpdateCompanion<AccessInspection> {
     Expression<bool>? thrillPresent,
     Expression<bool>? bruitPresent,
     Expression<bool>? rednessPresent,
+    Expression<bool>? swellingPresent,
     Expression<bool>? dischargePresent,
     Expression<bool>? painPresent,
     Expression<String>? notes,
@@ -4471,6 +4598,7 @@ class AccessInspectionsCompanion extends UpdateCompanion<AccessInspection> {
       if (thrillPresent != null) 'thrill_present': thrillPresent,
       if (bruitPresent != null) 'bruit_present': bruitPresent,
       if (rednessPresent != null) 'redness_present': rednessPresent,
+      if (swellingPresent != null) 'swelling_present': swellingPresent,
       if (dischargePresent != null) 'discharge_present': dischargePresent,
       if (painPresent != null) 'pain_present': painPresent,
       if (notes != null) 'notes': notes,
@@ -4489,6 +4617,7 @@ class AccessInspectionsCompanion extends UpdateCompanion<AccessInspection> {
     Value<bool?>? thrillPresent,
     Value<bool?>? bruitPresent,
     Value<bool?>? rednessPresent,
+    Value<bool?>? swellingPresent,
     Value<bool?>? dischargePresent,
     Value<bool?>? painPresent,
     Value<String?>? notes,
@@ -4505,6 +4634,7 @@ class AccessInspectionsCompanion extends UpdateCompanion<AccessInspection> {
       thrillPresent: thrillPresent ?? this.thrillPresent,
       bruitPresent: bruitPresent ?? this.bruitPresent,
       rednessPresent: rednessPresent ?? this.rednessPresent,
+      swellingPresent: swellingPresent ?? this.swellingPresent,
       dischargePresent: dischargePresent ?? this.dischargePresent,
       painPresent: painPresent ?? this.painPresent,
       notes: notes ?? this.notes,
@@ -4538,6 +4668,9 @@ class AccessInspectionsCompanion extends UpdateCompanion<AccessInspection> {
     }
     if (rednessPresent.present) {
       map['redness_present'] = Variable<bool>(rednessPresent.value);
+    }
+    if (swellingPresent.present) {
+      map['swelling_present'] = Variable<bool>(swellingPresent.value);
     }
     if (dischargePresent.present) {
       map['discharge_present'] = Variable<bool>(dischargePresent.value);
@@ -4573,6 +4706,7 @@ class AccessInspectionsCompanion extends UpdateCompanion<AccessInspection> {
           ..write('thrillPresent: $thrillPresent, ')
           ..write('bruitPresent: $bruitPresent, ')
           ..write('rednessPresent: $rednessPresent, ')
+          ..write('swellingPresent: $swellingPresent, ')
           ..write('dischargePresent: $dischargePresent, ')
           ..write('painPresent: $painPresent, ')
           ..write('notes: $notes, ')
@@ -5525,6 +5659,7 @@ typedef $$DialysisSessionsTableCreateCompanionBuilder =
       Value<double?> postWeightKg,
       Value<double?> calculatedInterdialyticWeightGainKg,
       Value<int?> calculatedUltrafiltrationGoalMl,
+      Value<double?> calculatedPostWeightDifferenceKg,
       Value<int?> actualFluidRemovedMl,
       Value<String?> notes,
       Value<String?> symptoms,
@@ -5543,6 +5678,7 @@ typedef $$DialysisSessionsTableUpdateCompanionBuilder =
       Value<double?> postWeightKg,
       Value<double?> calculatedInterdialyticWeightGainKg,
       Value<int?> calculatedUltrafiltrationGoalMl,
+      Value<double?> calculatedPostWeightDifferenceKg,
       Value<int?> actualFluidRemovedMl,
       Value<String?> notes,
       Value<String?> symptoms,
@@ -5627,6 +5763,12 @@ class $$DialysisSessionsTableFilterComposer
     column: $table.calculatedUltrafiltrationGoalMl,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<double> get calculatedPostWeightDifferenceKg =>
+      $composableBuilder(
+        column: $table.calculatedPostWeightDifferenceKg,
+        builder: (column) => ColumnFilters(column),
+      );
 
   ColumnFilters<int> get actualFluidRemovedMl => $composableBuilder(
     column: $table.actualFluidRemovedMl,
@@ -5728,6 +5870,12 @@ class $$DialysisSessionsTableOrderingComposer
         builder: (column) => ColumnOrderings(column),
       );
 
+  ColumnOrderings<double> get calculatedPostWeightDifferenceKg =>
+      $composableBuilder(
+        column: $table.calculatedPostWeightDifferenceKg,
+        builder: (column) => ColumnOrderings(column),
+      );
+
   ColumnOrderings<int> get actualFluidRemovedMl => $composableBuilder(
     column: $table.actualFluidRemovedMl,
     builder: (column) => ColumnOrderings(column),
@@ -5822,6 +5970,12 @@ class $$DialysisSessionsTableAnnotationComposer
         builder: (column) => column,
       );
 
+  GeneratedColumn<double> get calculatedPostWeightDifferenceKg =>
+      $composableBuilder(
+        column: $table.calculatedPostWeightDifferenceKg,
+        builder: (column) => column,
+      );
+
   GeneratedColumn<int> get actualFluidRemovedMl => $composableBuilder(
     column: $table.actualFluidRemovedMl,
     builder: (column) => column,
@@ -5904,6 +6058,8 @@ class $$DialysisSessionsTableTableManager
                     const Value.absent(),
                 Value<int?> calculatedUltrafiltrationGoalMl =
                     const Value.absent(),
+                Value<double?> calculatedPostWeightDifferenceKg =
+                    const Value.absent(),
                 Value<int?> actualFluidRemovedMl = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<String?> symptoms = const Value.absent(),
@@ -5922,6 +6078,8 @@ class $$DialysisSessionsTableTableManager
                     calculatedInterdialyticWeightGainKg,
                 calculatedUltrafiltrationGoalMl:
                     calculatedUltrafiltrationGoalMl,
+                calculatedPostWeightDifferenceKg:
+                    calculatedPostWeightDifferenceKg,
                 actualFluidRemovedMl: actualFluidRemovedMl,
                 notes: notes,
                 symptoms: symptoms,
@@ -5942,6 +6100,8 @@ class $$DialysisSessionsTableTableManager
                     const Value.absent(),
                 Value<int?> calculatedUltrafiltrationGoalMl =
                     const Value.absent(),
+                Value<double?> calculatedPostWeightDifferenceKg =
+                    const Value.absent(),
                 Value<int?> actualFluidRemovedMl = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<String?> symptoms = const Value.absent(),
@@ -5960,6 +6120,8 @@ class $$DialysisSessionsTableTableManager
                     calculatedInterdialyticWeightGainKg,
                 calculatedUltrafiltrationGoalMl:
                     calculatedUltrafiltrationGoalMl,
+                calculatedPostWeightDifferenceKg:
+                    calculatedPostWeightDifferenceKg,
                 actualFluidRemovedMl: actualFluidRemovedMl,
                 notes: notes,
                 symptoms: symptoms,
@@ -7659,6 +7821,7 @@ typedef $$AccessInspectionsTableCreateCompanionBuilder =
       Value<bool?> thrillPresent,
       Value<bool?> bruitPresent,
       Value<bool?> rednessPresent,
+      Value<bool?> swellingPresent,
       Value<bool?> dischargePresent,
       Value<bool?> painPresent,
       Value<String?> notes,
@@ -7676,6 +7839,7 @@ typedef $$AccessInspectionsTableUpdateCompanionBuilder =
       Value<bool?> thrillPresent,
       Value<bool?> bruitPresent,
       Value<bool?> rednessPresent,
+      Value<bool?> swellingPresent,
       Value<bool?> dischargePresent,
       Value<bool?> painPresent,
       Value<String?> notes,
@@ -7752,6 +7916,11 @@ class $$AccessInspectionsTableFilterComposer
 
   ColumnFilters<bool> get rednessPresent => $composableBuilder(
     column: $table.rednessPresent,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get swellingPresent => $composableBuilder(
+    column: $table.swellingPresent,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7848,6 +8017,11 @@ class $$AccessInspectionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get swellingPresent => $composableBuilder(
+    column: $table.swellingPresent,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get dischargePresent => $composableBuilder(
     column: $table.dischargePresent,
     builder: (column) => ColumnOrderings(column),
@@ -7939,6 +8113,11 @@ class $$AccessInspectionsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get swellingPresent => $composableBuilder(
+    column: $table.swellingPresent,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get dischargePresent => $composableBuilder(
     column: $table.dischargePresent,
     builder: (column) => column,
@@ -8027,6 +8206,7 @@ class $$AccessInspectionsTableTableManager
                 Value<bool?> thrillPresent = const Value.absent(),
                 Value<bool?> bruitPresent = const Value.absent(),
                 Value<bool?> rednessPresent = const Value.absent(),
+                Value<bool?> swellingPresent = const Value.absent(),
                 Value<bool?> dischargePresent = const Value.absent(),
                 Value<bool?> painPresent = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
@@ -8042,6 +8222,7 @@ class $$AccessInspectionsTableTableManager
                 thrillPresent: thrillPresent,
                 bruitPresent: bruitPresent,
                 rednessPresent: rednessPresent,
+                swellingPresent: swellingPresent,
                 dischargePresent: dischargePresent,
                 painPresent: painPresent,
                 notes: notes,
@@ -8059,6 +8240,7 @@ class $$AccessInspectionsTableTableManager
                 Value<bool?> thrillPresent = const Value.absent(),
                 Value<bool?> bruitPresent = const Value.absent(),
                 Value<bool?> rednessPresent = const Value.absent(),
+                Value<bool?> swellingPresent = const Value.absent(),
                 Value<bool?> dischargePresent = const Value.absent(),
                 Value<bool?> painPresent = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
@@ -8074,6 +8256,7 @@ class $$AccessInspectionsTableTableManager
                 thrillPresent: thrillPresent,
                 bruitPresent: bruitPresent,
                 rednessPresent: rednessPresent,
+                swellingPresent: swellingPresent,
                 dischargePresent: dischargePresent,
                 painPresent: painPresent,
                 notes: notes,

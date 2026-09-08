@@ -37,6 +37,7 @@ class DialysisSessions extends Table {
   RealColumn get postWeightKg => real().nullable()();
   RealColumn get calculatedInterdialyticWeightGainKg => real().nullable()();
   IntColumn get calculatedUltrafiltrationGoalMl => integer().nullable()();
+  RealColumn get calculatedPostWeightDifferenceKg => real().nullable()();
   IntColumn get actualFluidRemovedMl => integer().nullable()();
   TextColumn get notes => text().nullable()();
   TextColumn get symptoms => text().nullable()();
@@ -119,6 +120,7 @@ class AccessInspections extends Table {
   BoolColumn get thrillPresent => boolean().nullable()();
   BoolColumn get bruitPresent => boolean().nullable()();
   BoolColumn get rednessPresent => boolean().nullable()();
+  BoolColumn get swellingPresent => boolean().nullable()();
   BoolColumn get dischargePresent => boolean().nullable()();
   BoolColumn get painPresent => boolean().nullable()();
   TextColumn get notes => text().nullable()();
