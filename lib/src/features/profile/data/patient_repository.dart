@@ -22,9 +22,13 @@ class PatientRepository {
     String? vascularAccessType,
     String? fistulaArmLocation,
     bool isCaregiverMirror = false,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) async {
     final patientId = id ?? _uuid.v4();
     final now = DateTime.now().toUtc();
+    final created = createdAt?.toUtc() ?? now;
+    final updated = updatedAt?.toUtc() ?? created;
 
     final companion = PatientsCompanion.insert(
       id: drift.Value(patientId),
@@ -35,8 +39,8 @@ class PatientRepository {
       vascularAccessType: drift.Value(vascularAccessType),
       fistulaArmLocation: drift.Value(fistulaArmLocation),
       isCaregiverMirror: drift.Value(isCaregiverMirror),
-      createdAt: drift.Value(now),
-      updatedAt: drift.Value(now),
+      createdAt: drift.Value(created),
+      updatedAt: drift.Value(updated),
     );
 
     await _db.into(_db.patients).insert(companion);
@@ -75,7 +79,10 @@ class PatientRepository {
   /// Selects the most recently updated patient profile or returns null if no profiles exist.
   Stream<Patient?> watchActivePatient() {
     return (_db.select(_db.patients)
-          ..orderBy([(t) => drift.OrderingTerm.desc(t.updatedAt)])
+          ..orderBy([
+            (t) => drift.OrderingTerm.desc(t.updatedAt),
+            (t) => drift.OrderingTerm.desc(t.createdAt),
+          ])
           ..limit(1))
         .watchSingleOrNull();
   }
@@ -83,9 +90,44 @@ class PatientRepository {
   /// Retrieves the currently active patient profile once.
   Future<Patient?> getActivePatient() async {
     return (_db.select(_db.patients)
-          ..orderBy([(t) => drift.OrderingTerm.desc(t.updatedAt)])
+          ..orderBy([
+            (t) => drift.OrderingTerm.desc(t.updatedAt),
+            (t) => drift.OrderingTerm.desc(t.createdAt),
+          ])
           ..limit(1))
         .getSingleOrNull();
+  }
+
+  /// Retrieves a specific patient profile by ID.
+  Future<Patient?> getPatientById(String id) async {
+    return (_db.select(_db.patients)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+  }
+
+  /// Observes a specific patient profile by ID reactively.
+  Stream<Patient?> watchPatientById(String id) {
+    return (_db.select(_db.patients)..where((tbl) => tbl.id.equals(id))).watchSingleOrNull();
+  }
+
+  /// Retrieves all patient profiles, ordered by most recently updated first.
+  Future<List<Patient>> getAllPatients() async {
+    return (_db.select(_db.patients)..orderBy([(t) => drift.OrderingTerm.desc(t.updatedAt)])).get();
+  }
+
+  /// Observes all patient profiles reactively, ordered by most recently updated first.
+  Stream<List<Patient>> watchAllPatients() {
+    return (_db.select(_db.patients)..orderBy([(t) => drift.OrderingTerm.desc(t.updatedAt)])).watch();
+  }
+
+  /// Sets the active patient profile by updating its `updatedAt` timestamp to now.
+  /// This causes the active patient queries/streams to emit this patient,
+  /// persisting the active profile selection across app restarts.
+  Future<void> setActivePatient(String patientId, {DateTime? asOf}) async {
+    final now = asOf?.toUtc() ?? DateTime.now().toUtc();
+    await (_db.update(_db.patients)..where((tbl) => tbl.id.equals(patientId))).write(
+      PatientsCompanion(
+        updatedAt: drift.Value(now),
+      ),
+    );
   }
 }
 
@@ -95,8 +137,23 @@ final patientRepositoryProvider = Provider<PatientRepository>((ref) {
   return PatientRepository(db);
 });
 
+/// State provider allowing explicit override/selection of the active patient ID in memory.
+final activePatientIdProvider = StateProvider<String?>((ref) => null);
+
 /// Reactive stream provider for the active patient profile.
+/// If an explicit active patient ID is selected in [activePatientIdProvider],
+/// it watches that patient. Otherwise, it observes the most recently active patient.
 final activePatientStreamProvider = StreamProvider<Patient?>((ref) {
   final repository = ref.watch(patientRepositoryProvider);
+  final activeId = ref.watch(activePatientIdProvider);
+  if (activeId != null) {
+    return repository.watchPatientById(activeId);
+  }
   return repository.watchActivePatient();
+});
+
+/// Reactive stream provider for all patient profiles on the device.
+final allPatientsStreamProvider = StreamProvider<List<Patient>>((ref) {
+  final repository = ref.watch(patientRepositoryProvider);
+  return repository.watchAllPatients();
 });

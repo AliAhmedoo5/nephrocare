@@ -28,6 +28,7 @@ class _PatientProfileSetupScreenState extends ConsumerState<PatientProfileSetupS
   ClinicalCondition _selectedCondition = ClinicalCondition.hemodialysis;
   VascularAccessType _selectedAccessType = VascularAccessType.arteriovenousFistula;
   AccessLocation _selectedAccessLocation = AccessLocation.leftArm;
+  bool _isCaregiverMirror = false;
   bool _isSubmitting = false;
 
   @override
@@ -46,6 +47,7 @@ class _PatientProfileSetupScreenState extends ConsumerState<PatientProfileSetupS
       _selectedCondition = ClinicalCondition.fromString(patient.diagnosis) ?? ClinicalCondition.hemodialysis;
       _selectedAccessType = VascularAccessType.fromString(patient.vascularAccessType) ?? VascularAccessType.none;
       _selectedAccessLocation = AccessLocation.fromString(patient.fistulaArmLocation) ?? AccessLocation.none;
+      _isCaregiverMirror = patient.isCaregiverMirror;
     }
   }
 
@@ -78,16 +80,20 @@ class _PatientProfileSetupScreenState extends ConsumerState<PatientProfileSetupS
           dailyFluidAllowanceMl: fluidAllowance,
           vascularAccessType: _selectedAccessType.name,
           fistulaArmLocation: accessLocationName,
+          isCaregiverMirror: _isCaregiverMirror,
         );
       } else {
-        await repository.createPatientProfile(
+        final newPatient = await repository.createPatientProfile(
           name: _nameController.text.trim(),
           diagnosis: _selectedCondition.name,
           prescribedDryWeightKg: dryWeight,
           dailyFluidAllowanceMl: fluidAllowance,
           vascularAccessType: _selectedAccessType.name,
           fistulaArmLocation: accessLocationName,
+          isCaregiverMirror: _isCaregiverMirror,
         );
+        await repository.setActivePatient(newPatient.id);
+        ref.read(activePatientIdProvider.notifier).state = newPatient.id;
       }
 
       if (mounted) {
@@ -203,6 +209,52 @@ class _PatientProfileSetupScreenState extends ConsumerState<PatientProfileSetupS
                     }
                     return null;
                   },
+                ),
+                const SizedBox(height: 16),
+
+                // Caregiver Mirror Designation Toggle
+                Card(
+                  elevation: 0,
+                  color: _isCaregiverMirror
+                      ? theme.colorScheme.secondaryContainer.withAlpha(120)
+                      : theme.colorScheme.surfaceContainerHighest.withAlpha(100),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: _isCaregiverMirror
+                          ? theme.colorScheme.secondary
+                          : theme.colorScheme.outlineVariant,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+                    child: SwitchListTile(
+                      key: const Key('caregiver_mirror_switch'),
+                      value: _isCaregiverMirror,
+                      onChanged: (val) {
+                        setState(() {
+                          _isCaregiverMirror = val;
+                        });
+                      },
+                      title: Text(
+                        'Caregiver Mirror Profile',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      subtitle: Text(
+                        "Designate as a replica maintained on a caregiver or family member's device for monitoring and clinical consultation.",
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      secondary: Icon(
+                        Icons.supervisor_account_rounded,
+                        color: _isCaregiverMirror ? theme.colorScheme.secondary : theme.colorScheme.onSurfaceVariant,
+                      ),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 20),
 

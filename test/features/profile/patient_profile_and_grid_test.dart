@@ -48,6 +48,79 @@ void main() {
       final activePatient = await repository.watchActivePatient().first;
       expect(activePatient?.id, equals(patient.id));
       expect(activePatient?.name, equals('Eleanor Vance'));
+      expect(activePatient?.isCaregiverMirror, isFalse);
+    });
+
+    test('Creates Caregiver Mirror profile and verifies isCaregiverMirror flag', () async {
+      final mirrorProfile = await repository.createPatientProfile(
+        name: 'Grandpa Joe',
+        diagnosis: ClinicalCondition.peritonealDialysis.name,
+        prescribedDryWeightKg: 74.0,
+        dailyFluidAllowanceMl: 1500,
+        isCaregiverMirror: true,
+      );
+
+      expect(mirrorProfile.id, isNotEmpty);
+      expect(mirrorProfile.name, equals('Grandpa Joe'));
+      expect(mirrorProfile.isCaregiverMirror, isTrue);
+
+      final fetched = await repository.getPatientById(mirrorProfile.id);
+      expect(fetched, isNotNull);
+      expect(fetched!.isCaregiverMirror, isTrue);
+    });
+
+    test('Supports multi-patient profiles, retrieving all profiles, and switching active patient', () async {
+      final now = DateTime.now().toUtc();
+
+      // 1. Create initial direct patient profile
+      final patient1 = await repository.createPatientProfile(
+        name: 'Eleanor Vance',
+        diagnosis: ClinicalCondition.hemodialysis.name,
+        prescribedDryWeightKg: 68.5,
+        dailyFluidAllowanceMl: 1200,
+        isCaregiverMirror: false,
+        createdAt: now.subtract(const Duration(seconds: 10)),
+        updatedAt: now.subtract(const Duration(seconds: 10)),
+      );
+
+      // 2. Create second profile as Caregiver Mirror
+      final patient2 = await repository.createPatientProfile(
+        name: 'Marcus Chen',
+        diagnosis: ClinicalCondition.urologicalCatheter.name,
+        dailyFluidAllowanceMl: 2000,
+        isCaregiverMirror: true,
+        createdAt: now.subtract(const Duration(seconds: 5)),
+        updatedAt: now.subtract(const Duration(seconds: 5)),
+      );
+
+      // Verify getAllPatients returns both profiles
+      final allPatients = await repository.getAllPatients();
+      expect(allPatients.length, equals(2));
+      expect(allPatients.map((p) => p.name).toList(), containsAll(['Eleanor Vance', 'Marcus Chen']));
+
+      // Latest created profile is currently active by default
+      final initialActive = await repository.getActivePatient();
+      expect(initialActive?.id, equals(patient2.id));
+
+      // 3. Switch active patient back to Patient 1
+      await repository.setActivePatient(patient1.id, asOf: now.subtract(const Duration(seconds: 2)));
+
+      final switchedActive = await repository.getActivePatient();
+      expect(switchedActive?.id, equals(patient1.id));
+      expect(switchedActive?.name, equals('Eleanor Vance'));
+      expect(switchedActive?.isCaregiverMirror, isFalse);
+
+      // 4. Switch active patient to Patient 2 (Caregiver Mirror)
+      await repository.setActivePatient(patient2.id, asOf: now);
+
+      final switchedMirror = await repository.getActivePatient();
+      expect(switchedMirror?.id, equals(patient2.id));
+      expect(switchedMirror?.name, equals('Marcus Chen'));
+      expect(switchedMirror?.isCaregiverMirror, isTrue);
+
+      // 5. Verify reactive stream watchAllPatients emits full list
+      final streamList = await repository.watchAllPatients().first;
+      expect(streamList.length, equals(2));
     });
   });
 

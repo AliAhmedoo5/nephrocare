@@ -11,6 +11,7 @@ import '../../features/catheter/domain/catheter_lifespan_rules.dart';
 import '../../features/dialysis/data/dialysis_session_repository.dart';
 import '../../features/fluid/data/fluid_repository.dart';
 import '../../features/fluid/domain/fluid_balance_summary.dart';
+import '../../features/profile/data/patient_repository.dart';
 
 /// Test harness establishing the Unified Application & State Seam.
 ///
@@ -40,8 +41,14 @@ class NephroTestHarness {
     String? vascularAccessType,
     String? fistulaArmLocation,
     bool isCaregiverMirror = false,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) async {
     final patientId = id ?? generateUuid();
+    final now = DateTime.now().toUtc();
+    final created = createdAt?.toUtc() ?? now;
+    final updated = updatedAt?.toUtc() ?? created;
+
     final companion = PatientsCompanion.insert(
       id: drift.Value(patientId),
       name: name,
@@ -51,9 +58,38 @@ class NephroTestHarness {
       vascularAccessType: drift.Value(vascularAccessType),
       fistulaArmLocation: drift.Value(fistulaArmLocation),
       isCaregiverMirror: drift.Value(isCaregiverMirror),
+      createdAt: drift.Value(created),
+      updatedAt: drift.Value(updated),
     );
     await database.into(database.patients).insert(companion);
     return (database.select(database.patients)..where((tbl) => tbl.id.equals(patientId))).getSingle();
+  }
+
+  /// Clinical helper to switch active patient profile.
+  Future<void> switchActivePatient(String patientId, {DateTime? asOf}) async {
+    final repository = PatientRepository(database);
+    await repository.setActivePatient(patientId, asOf: asOf);
+    container.read(activePatientIdProvider.notifier).state = patientId;
+  }
+
+  /// Clinical helper to get currently active patient profile.
+  Future<Patient?> getActivePatient() async {
+    final activeId = container.read(activePatientIdProvider);
+    final repository = PatientRepository(database);
+    if (activeId != null) {
+      return repository.getPatientById(activeId);
+    }
+    return repository.getActivePatient();
+  }
+
+  /// Clinical helper to get all registered patient profiles.
+  Future<List<Patient>> getAllPatients() async {
+    return PatientRepository(database).getAllPatients();
+  }
+
+  /// Clinical helper to query a patient by ID.
+  Future<Patient?> getPatient(String id) async {
+    return PatientRepository(database).getPatientById(id);
   }
 
   /// Clinical helper to log a Dialysis Session.

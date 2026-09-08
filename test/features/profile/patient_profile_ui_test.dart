@@ -173,5 +173,113 @@ void main() {
       expect(find.text('Symptom Log'), findsOneWidget);
       expect(find.text('Modular Clinical Report'), findsOneWidget);
     });
+
+    testWidgets('Profile setup designates Caregiver Mirror and dashboard displays Caregiver Mirror badge',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(createTestApp());
+      await tester.pumpAndSettle();
+
+      // Fill out setup form
+      await tester.enterText(find.byKey(const Key('patient_name_input')), 'Grandpa Joe');
+      await tester.pumpAndSettle();
+
+      // Select Urological / Catheter condition
+      await tester.tap(find.byKey(const Key('diagnosis_dropdown')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Urological / Catheter').last);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byKey(const Key('fluid_allowance_input')), '2000');
+      await tester.pumpAndSettle();
+
+      // Toggle Caregiver Mirror
+      final mirrorSwitch = find.byKey(const Key('caregiver_mirror_switch'));
+      expect(mirrorSwitch, findsOneWidget);
+      await tester.ensureVisible(mirrorSwitch);
+      await tester.tap(mirrorSwitch);
+      await tester.pumpAndSettle();
+
+      // Save profile
+      final saveButton = find.byKey(const Key('save_profile_button'));
+      await tester.ensureVisible(saveButton);
+      await tester.tap(saveButton);
+      await tester.pumpAndSettle();
+
+      // Verify dashboard displays Grandpa Joe and Caregiver Mirror badge
+      expect(find.text('Grandpa Joe'), findsOneWidget);
+      expect(find.byKey(const Key('caregiver_mirror_badge')), findsOneWidget);
+      expect(find.text('Caregiver Mirror'), findsOneWidget);
+    });
+
+    testWidgets('Profile management allows switching between multiple patient profiles and reactively reconfigures Condition-Adaptive Grid',
+        (WidgetTester tester) async {
+      final now = DateTime.now().toUtc();
+
+      // 1. Seed two patients: Eleanor Vance (Hemodialysis, direct patient) and Marcus Chen (Urological Catheter, Caregiver Mirror)
+      final patient1 = await harness.createPatient(
+        name: 'Eleanor Vance',
+        diagnosis: ClinicalCondition.hemodialysis.name,
+        prescribedDryWeightKg: 68.5,
+        dailyFluidAllowanceMl: 1200,
+        vascularAccessType: 'arteriovenousFistula',
+        fistulaArmLocation: 'leftArm',
+        isCaregiverMirror: false,
+        createdAt: now.subtract(const Duration(seconds: 10)),
+        updatedAt: now.subtract(const Duration(seconds: 5)),
+      );
+
+      final patient2 = await harness.createPatient(
+        name: 'Marcus Chen',
+        diagnosis: ClinicalCondition.urologicalCatheter.name,
+        dailyFluidAllowanceMl: 2000,
+        isCaregiverMirror: true,
+        createdAt: now.subtract(const Duration(seconds: 8)),
+        updatedAt: now.subtract(const Duration(seconds: 10)),
+      );
+
+      // Make Eleanor Vance active initially
+      await harness.switchActivePatient(patient1.id, asOf: now.subtract(const Duration(seconds: 2)));
+
+      await tester.pumpWidget(createTestApp());
+      await tester.pumpAndSettle();
+
+      // Verify currently active is Eleanor Vance with Hemodialysis 6 cards
+      expect(find.text('Eleanor Vance'), findsOneWidget);
+      expect(find.text('Hemodialysis'), findsOneWidget);
+      expect(find.byKey(const Key('caregiver_mirror_badge')), findsNothing);
+      expect(find.text('Check-in'), findsOneWidget);
+      expect(find.text('Post-Dialysis Log'), findsOneWidget);
+
+      // 2. Open Profile Management screen from Dashboard AppBar
+      final manageProfilesBtn = find.byKey(const Key('manage_profiles_button'));
+      expect(manageProfilesBtn, findsOneWidget);
+      await tester.tap(manageProfilesBtn);
+      await tester.pumpAndSettle();
+
+      // Verify Profile Management Screen shows both profiles
+      expect(find.text('Profiles & Caregiver Mirrors'), findsOneWidget);
+      expect(find.text('Eleanor Vance'), findsOneWidget);
+      expect(find.text('Marcus Chen'), findsOneWidget);
+      expect(find.byKey(Key('profile_item_${patient1.id}')), findsOneWidget);
+      expect(find.byKey(Key('profile_item_${patient2.id}')), findsOneWidget);
+
+      // Verify Marcus Chen has Caregiver Mirror badge in list
+      expect(find.byKey(Key('mirror_badge_${patient2.id}')), findsOneWidget);
+
+      // 3. Switch active profile to Marcus Chen
+      await tester.tap(find.byKey(Key('profile_item_${patient2.id}')));
+      await tester.pumpAndSettle();
+
+      // 4. Verify Dashboard reactively reconfigures to Marcus Chen and Urological Catheter grid
+      expect(find.text('Marcus Chen'), findsOneWidget);
+      expect(find.text('Urological / Catheter'), findsOneWidget);
+      expect(find.byKey(const Key('caregiver_mirror_badge')), findsOneWidget);
+
+      // Verify Urological Catheter clinical action cards
+      expect(find.text('Foley Catheter Lifespan'), findsOneWidget);
+      expect(find.text('Urine Evacuation'), findsOneWidget);
+      expect(find.text('Fluid Intake'), findsOneWidget);
+      expect(find.text('Check-in'), findsNothing); // Hemodialysis check-in gone!
+    });
   });
 }

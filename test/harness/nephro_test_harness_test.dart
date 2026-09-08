@@ -612,5 +612,159 @@ void main() {
       expect(evalPostReplacement.daysRemaining, equals(14));
       expect(evalPostReplacement.isCautiRiskActive, isFalse);
     });
+
+    test('Top-level test harness verifies strict data segregation across multiple patient profiles and seamless Caregiver Mirror switching', () async {
+      final now = DateTime.now().toUtc();
+
+      // 1. Establish Patient 1: Direct Patient on Hemodialysis
+      final patient1 = await harness.createPatient(
+        name: 'Eleanor Vance',
+        diagnosis: 'hemodialysis',
+        prescribedDryWeightKg: 68.0,
+        dailyFluidAllowanceMl: 1200,
+        vascularAccessType: 'arteriovenousFistula',
+        fistulaArmLocation: 'leftArm',
+        isCaregiverMirror: false,
+      );
+
+      // 2. Establish Patient 2: Caregiver Mirror profile for Urological Catheter dependent
+      final patient2 = await harness.createPatient(
+        name: 'Grandpa Joe',
+        diagnosis: 'urologicalCatheter',
+        dailyFluidAllowanceMl: 2000,
+        isCaregiverMirror: true,
+      );
+
+      // Verify profile types
+      expect(patient1.isCaregiverMirror, isFalse);
+      expect(patient2.isCaregiverMirror, isTrue);
+
+      // 3. Record clinical data for Patient 1 (Hemodialysis)
+      final p1Session = await harness.recordPreDialysisCheckIn(
+        patientId: patient1.id,
+        preWeightKg: 70.2,
+        volumeAllowanceMl: 200,
+        thrillPresent: true,
+        bruitPresent: true,
+        startedAt: now.subtract(const Duration(hours: 3)),
+      );
+      expect(p1Session.id, isNotEmpty);
+
+      final p1Bp = await harness.recordBloodPressure(
+        patientId: patient1.id,
+        systolic: 130,
+        diastolic: 80,
+        pulse: 72,
+        armUsed: 'rightArm',
+        recordedAt: now.subtract(const Duration(hours: 2)),
+      );
+      expect(p1Bp.id, isNotEmpty);
+
+      await harness.recordFluidIntake(
+        patientId: patient1.id,
+        volumeMl: 300,
+        beverageType: 'Water',
+        recordedAt: now.subtract(const Duration(hours: 2)),
+      );
+
+      await harness.recordFluidOutput(
+        patientId: patient1.id,
+        volumeMl: 200,
+        outputType: 'urine',
+        recordedAt: now.subtract(const Duration(hours: 1)),
+      );
+
+      // 4. Record clinical data for Patient 2 (Caregiver Mirror, Foley Catheter)
+      final p2Catheter = await harness.recordCatheterInsertion(
+        patientId: patient2.id,
+        insertionDate: now.subtract(const Duration(days: 3)),
+        notes: 'Grandpa Joe catheter monitored by caregiver',
+      );
+      expect(p2Catheter.id, isNotEmpty);
+
+      final p2Bp = await harness.recordBloodPressure(
+        patientId: patient2.id,
+        systolic: 145,
+        diastolic: 90,
+        pulse: 78,
+        armUsed: 'leftArm',
+        recordedAt: now.subtract(const Duration(hours: 2)),
+      );
+      expect(p2Bp.id, isNotEmpty);
+
+      await harness.recordFluidIntake(
+        patientId: patient2.id,
+        volumeMl: 500,
+        beverageType: 'Water',
+        recordedAt: now.subtract(const Duration(hours: 2)),
+      );
+
+      await harness.recordFluidOutput(
+        patientId: patient2.id,
+        volumeMl: 600,
+        outputType: 'urine',
+        hematuriaGrade: 2,
+        recordedAt: now.subtract(const Duration(hours: 1)),
+      );
+
+      // 5. Verify strict database isolation & segregation per Patient ID
+      // Blood Pressure isolation:
+      final p1BpTrends = await harness.getHemodynamicTrends(patient1.id);
+      expect(p1BpTrends.length, equals(1));
+      expect(p1BpTrends.first.id, equals(p1Bp.id));
+      expect(p1BpTrends.first.systolic, equals(130));
+      expect(p1BpTrends.first.armUsed, equals('rightArm'));
+
+      final p2BpTrends = await harness.getHemodynamicTrends(patient2.id);
+      expect(p2BpTrends.length, equals(1));
+      expect(p2BpTrends.first.id, equals(p2Bp.id));
+      expect(p2BpTrends.first.systolic, equals(145));
+      expect(p2BpTrends.first.armUsed, equals('leftArm'));
+
+      // Dialysis Sessions isolation:
+      final p1Sessions = await harness.getDialysisSessions(patient1.id);
+      expect(p1Sessions.length, equals(1));
+      expect(p1Sessions.first.patientId, equals(patient1.id));
+
+      final p2Sessions = await harness.getDialysisSessions(patient2.id);
+      expect(p2Sessions, isEmpty); // Patient 2 has zero dialysis sessions
+
+      // Catheter Events isolation:
+      final p1ActiveCatheter = await harness.getActiveCatheter(patient1.id);
+      expect(p1ActiveCatheter, isNull); // Patient 1 has no catheter events
+
+      final p2ActiveCatheter = await harness.getActiveCatheter(patient2.id);
+      expect(p2ActiveCatheter, isNotNull);
+      expect(p2ActiveCatheter!.id, equals(p2Catheter.id));
+      expect(p2ActiveCatheter.patientId, equals(patient2.id));
+
+      // 24-Hour Fluid Balance isolation:
+      final p1Balance = await harness.get24HourFluidBalance(patient1.id, asOf: now);
+      expect(p1Balance.totalIntakeMl, equals(300));
+      expect(p1Balance.totalOutputMl, equals(200));
+      expect(p1Balance.netBalanceMl, equals(100));
+      expect(p1Balance.dailyFluidAllowanceMl, equals(1200));
+
+      final p2Balance = await harness.get24HourFluidBalance(patient2.id, asOf: now);
+      expect(p2Balance.totalIntakeMl, equals(500));
+      expect(p2Balance.totalOutputMl, equals(600));
+      expect(p2Balance.netBalanceMl, equals(-100));
+      expect(p2Balance.dailyFluidAllowanceMl, equals(2000));
+
+      // 6. Seamless Profile Switching via harness
+      await harness.switchActivePatient(patient1.id, asOf: now.subtract(const Duration(seconds: 2)));
+      final active1 = await harness.getActivePatient();
+      expect(active1, isNotNull);
+      expect(active1!.id, equals(patient1.id));
+      expect(active1.name, equals('Eleanor Vance'));
+      expect(active1.isCaregiverMirror, isFalse);
+
+      await harness.switchActivePatient(patient2.id, asOf: now);
+      final active2 = await harness.getActivePatient();
+      expect(active2, isNotNull);
+      expect(active2!.id, equals(patient2.id));
+      expect(active2.name, equals('Grandpa Joe'));
+      expect(active2.isCaregiverMirror, isTrue);
+    });
   });
 }

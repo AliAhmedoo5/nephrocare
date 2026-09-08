@@ -12,6 +12,7 @@ import '../../fluid/presentation/fluid_intake_entry_screen.dart';
 import '../../fluid/presentation/fluid_output_entry_screen.dart';
 import '../../profile/domain/clinical_condition.dart';
 import '../../profile/presentation/patient_profile_setup_screen.dart';
+import '../../profile/presentation/profile_management_screen.dart';
 import 'condition_adaptive_grid.dart';
 
 /// Primary dashboard screen rendering the Condition-Adaptive Grid and patient safety indicators.
@@ -29,6 +30,14 @@ class DashboardScreen extends ConsumerWidget {
         builder: (context) => PatientProfileSetupScreen(
           existingPatient: patient,
         ),
+      ),
+    );
+  }
+
+  void _openProfileManagement(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const ProfileManagementScreen(),
       ),
     );
   }
@@ -52,6 +61,12 @@ class DashboardScreen extends ConsumerWidget {
         ),
         backgroundColor: theme.colorScheme.primaryContainer,
         actions: [
+          IconButton(
+            key: const Key('manage_profiles_button'),
+            icon: const Icon(Icons.people_alt_outlined),
+            tooltip: 'Profiles & Caregiver Mirrors',
+            onPressed: () => _openProfileManagement(context),
+          ),
           IconButton(
             icon: const Icon(Icons.manage_accounts_outlined),
             tooltip: 'Edit Patient Profile',
@@ -101,17 +116,39 @@ class DashboardScreen extends ConsumerWidget {
                                   ),
                                 ),
                                 const SizedBox(height: 4),
-                                Chip(
-                                  label: Text(
-                                    condition.displayName,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: theme.colorScheme.onPrimaryContainer,
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  children: [
+                                    Chip(
+                                      label: Text(
+                                        condition.displayName,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          color: theme.colorScheme.onPrimaryContainer,
+                                        ),
+                                      ),
+                                      backgroundColor: theme.colorScheme.primaryContainer,
+                                      padding: EdgeInsets.zero,
+                                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                     ),
-                                  ),
-                                  backgroundColor: theme.colorScheme.primaryContainer,
-                                  padding: EdgeInsets.zero,
-                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    if (patient.isCaregiverMirror)
+                                      Container(
+                                        key: const Key('caregiver_mirror_badge'),
+                                        child: Chip(
+                                          avatar: const Icon(Icons.visibility_outlined, size: 16),
+                                          label: const Text(
+                                            'Caregiver Mirror',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          backgroundColor: theme.colorScheme.secondaryContainer,
+                                          padding: EdgeInsets.zero,
+                                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ],
                             ),
