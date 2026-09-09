@@ -205,28 +205,41 @@ class FluidRepository {
         .get();
 
     final totalIntakeMl = intakeLogs.fold<int>(0, (sum, log) => sum + log.volumeMl);
-    final totalOutputLogsMl = outputLogs.fold<int>(0, (sum, log) => sum + log.volumeMl);
 
-    // 4. Factor in hemodialysis session actual ultrafiltration volume
+    // 3a. Separate native residual urine output from ultrafiltration logs
+    final totalUrineOutputMl = outputLogs
+        .where((tbl) => tbl.outputType == 'urine')
+        .fold<int>(0, (sum, log) => sum + log.volumeMl);
+
+    final manualUfMl = outputLogs
+        .where((tbl) => tbl.outputType == 'ultrafiltration')
+        .fold<int>(0, (sum, log) => sum + log.volumeMl);
+
+    // 4. Factor in hemodialysis session actual ultrafiltration volume strictly from completed sessions
     final sessions = await (_db.select(_db.dialysisSessions)
           ..where((tbl) =>
               tbl.patientId.equals(patientId) &
-              tbl.startedAt.isBiggerOrEqualValue(windowStart) &
+              tbl.status.equals('completed') &
+              (tbl.endedAt.isBiggerOrEqualValue(windowStart) |
+                  (tbl.endedAt.isNull() & tbl.startedAt.isBiggerOrEqualValue(windowStart))) &
               tbl.startedAt.isSmallerOrEqualValue(referenceTime) &
               tbl.actualFluidRemovedMl.isNotNull()))
         .get();
 
-    int dialysisUfMl = 0;
+    int dialysisSessionUfMl = 0;
     for (final session in sessions) {
       if (session.actualFluidRemovedMl != null && session.actualFluidRemovedMl! > 0) {
-        dialysisUfMl += session.actualFluidRemovedMl!;
+        dialysisSessionUfMl += session.actualFluidRemovedMl!;
       }
     }
 
-    final totalOutputMl = totalOutputLogsMl + dialysisUfMl;
+    final machineUltrafiltrationMl = dialysisSessionUfMl + manualUfMl;
+    final totalOutputMl = totalUrineOutputMl + machineUltrafiltrationMl;
 
     return FluidCalculationRules.buildSummary(
       totalIntakeMl: totalIntakeMl,
+      totalUrineOutputMl: totalUrineOutputMl,
+      machineUltrafiltrationMl: machineUltrafiltrationMl,
       totalOutputMl: totalOutputMl,
       dailyFluidAllowanceMl: patient.dailyFluidAllowanceMl,
     );

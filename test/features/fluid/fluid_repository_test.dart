@@ -237,5 +237,161 @@ void main() {
       balance = await fluidRepo.get24HourFluidBalance(testPatient.id, asOf: now);
       expect(balance.totalIntakeMl, equals(0));
     });
+
+    test('get24HourFluidBalance separates native urine output from dialysis ultrafiltration and computes dual balances independently', () async {
+      final now = DateTime.now().toUtc();
+
+      // 1. Log 550 mL fluid intake
+      await fluidRepo.recordFluidIntake(
+        patientId: testPatient.id,
+        volumeMl: 550,
+        beverageType: 'Water',
+        recordedAt: now.subtract(const Duration(hours: 6)),
+      );
+
+      // 2. Log 200 mL residual native urine output
+      await fluidRepo.recordFluidOutput(
+        patientId: testPatient.id,
+        volumeMl: 200,
+        outputType: 'urine',
+        recordedAt: now.subtract(const Duration(hours: 4)),
+      );
+
+      // 3. Complete a hemodialysis session with 2,000 mL machine ultrafiltration
+      final session = await harness.recordPreDialysisCheckIn(
+        patientId: testPatient.id,
+        preWeightKg: 64.0,
+        startedAt: now.subtract(const Duration(hours: 3)),
+      );
+
+      await harness.recordPostDialysisSession(
+        sessionId: session.id,
+        postWeightKg: 62.0,
+        actualFluidRemovedMl: 2000,
+        endedAt: now.subtract(const Duration(hours: 1)),
+      );
+
+      // 4. Query 24-hour dual fluid balance
+      final balance = await fluidRepo.get24HourFluidBalance(testPatient.id, asOf: now);
+
+      expect(balance.totalIntakeMl, equals(550));
+      expect(balance.totalUrineOutputMl, equals(200));
+      expect(balance.machineUltrafiltrationMl, equals(2000));
+      expect(balance.totalOutputMl, equals(2200));
+      // Native Urine Balance = 550 - 200 = +350 mL
+      expect(balance.nativeUrineBalanceMl, equals(350));
+      // Dialytic Fluid Balance = 550 - (200 + 2000) = -1650 mL
+      expect(balance.dialyticFluidBalanceMl, equals(-1650));
+      expect(balance.netBalanceMl, equals(-1650));
+      expect(
+        balance.plainLanguageSummary,
+        equals('Body Fluid Retention: +350 mL | Dialysis Removal: -2,000 mL | Net Balance: -1,650 mL'),
+      );
+    });
+
+    test('get24HourFluidBalance ignores in-progress and cancelled dialysis sessions for ultrafiltration calculation', () async {
+      final now = DateTime.now().toUtc();
+
+      await fluidRepo.recordFluidIntake(
+        patientId: testPatient.id,
+        volumeMl: 600,
+        beverageType: 'Water',
+        recordedAt: now.subtract(const Duration(hours: 2)),
+      );
+
+      // In-progress session: pre-weight check-in done, but checkout not performed
+      final inProgressSession = await harness.recordPreDialysisCheckIn(
+        patientId: testPatient.id,
+        preWeightKg: 63.5,
+        startedAt: now.subtract(const Duration(hours: 2)),
+      );
+      expect(inProgressSession.status, equals('inProgress'));
+
+      // Cancelled session
+      final cancelled = await harness.recordPreDialysisCheckIn(
+        patientId: testPatient.id,
+        preWeightKg: 63.8,
+        startedAt: now.subtract(const Duration(hours: 5)),
+      );
+      await harness.cancelDialysisSession(cancelled.id, reason: 'Machine alarm');
+
+      // Neither in-progress nor cancelled sessions should contribute ultrafiltration
+      var balance = await fluidRepo.get24HourFluidBalance(testPatient.id, asOf: now);
+      expect(balance.totalIntakeMl, equals(600));
+      expect(balance.totalUrineOutputMl, equals(0));
+      expect(balance.machineUltrafiltrationMl, equals(0));
+      expect(balance.nativeUrineBalanceMl, equals(600));
+      expect(balance.dialyticFluidBalanceMl, equals(600));
+
+      // Now complete the in-progress session with 1500 mL ultrafiltration
+      await harness.recordPostDialysisSession(
+        sessionId: inProgressSession.id,
+        postWeightKg: 62.0,
+        actualFluidRemovedMl: 1500,
+        endedAt: now.subtract(const Duration(hours: 1)),
+      );
+
+      balance = await fluidRepo.get24HourFluidBalance(testPatient.id, asOf: now);
+      expect(balance.machineUltrafiltrationMl, equals(1500));
+      expect(balance.nativeUrineBalanceMl, equals(600));
+      // Dialytic Fluid Balance = 600 - (0 + 1500) = -900 mL
+      expect(balance.dialyticFluidBalanceMl, equals(-900));
+      expect(balance.netBalanceMl, equals(-900));
+    });
+
+    test('get24HourFluidBalance isolates native urine from peritoneal drain and includes sessions completed within window', () async {
+      final now = DateTime.now().toUtc();
+
+      // Log 800 mL intake
+      await fluidRepo.recordFluidIntake(
+        patientId: testPatient.id,
+        volumeMl: 800,
+        beverageType: 'Tea',
+        recordedAt: now.subtract(const Duration(hours: 6)),
+      );
+
+      // Log 300 mL urine output
+      await fluidRepo.recordFluidOutput(
+        patientId: testPatient.id,
+        volumeMl: 300,
+        outputType: 'urine',
+        recordedAt: now.subtract(const Duration(hours: 5)),
+      );
+
+      // Log 1500 mL peritonealDrain output (should NOT count as native urine)
+      await fluidRepo.recordFluidOutput(
+        patientId: testPatient.id,
+        volumeMl: 1500,
+        outputType: 'peritonealDrain',
+        recordedAt: now.subtract(const Duration(hours: 4)),
+      );
+
+      // Session started 26 hours ago (outside window) but completed 22 hours ago (inside window)
+      final session = await harness.recordPreDialysisCheckIn(
+        patientId: testPatient.id,
+        preWeightKg: 65.0,
+        startedAt: now.subtract(const Duration(hours: 26)),
+      );
+      await harness.recordPostDialysisSession(
+        sessionId: session.id,
+        postWeightKg: 63.0,
+        actualFluidRemovedMl: 2000,
+        endedAt: now.subtract(const Duration(hours: 22)),
+      );
+
+      final balance = await fluidRepo.get24HourFluidBalance(testPatient.id, asOf: now);
+
+      // Total urine must be strictly 300 mL (peritonealDrain excluded)
+      expect(balance.totalUrineOutputMl, equals(300));
+      // Ultrafiltration completed within 24h window
+      expect(balance.machineUltrafiltrationMl, equals(2000));
+      // Native Urine Balance: 800 - 300 = +500 mL
+      expect(balance.nativeUrineBalanceMl, equals(500));
+      // Dialytic Fluid Balance: 800 - (300 + 2000) = -1500 mL
+      expect(balance.dialyticFluidBalanceMl, equals(-1500));
+      expect(balance.bodyFluidRetentionText, equals('+500 mL'));
+      expect(balance.dialysisRemovalText, equals('-2,000 mL'));
+      expect(balance.netBalanceText, equals('-1,500 mL'));
+    });
   });
 }

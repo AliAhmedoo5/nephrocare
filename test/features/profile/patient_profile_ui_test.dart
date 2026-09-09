@@ -106,8 +106,8 @@ void main() {
       expect(find.text('Check-in'), findsOneWidget);
       expect(find.text('Post-Dialysis Log'), findsOneWidget);
       expect(find.text('Blood Pressure'), findsOneWidget);
-      expect(find.text('Fluid Intake & Binders'), findsOneWidget);
-      expect(find.text('Fluid Output'), findsOneWidget);
+      expect(find.text('Fluid Hub'), findsOneWidget);
+      expect(find.text('Medication & Binders'), findsOneWidget);
       expect(find.text('Modular Clinical Report'), findsOneWidget);
     });
 

@@ -15,6 +15,7 @@ import '../../dialysis/presentation/hemodialysis_post_session_screen.dart';
 import '../../dialysis/presentation/peritoneal_exchange_screen.dart';
 import '../../dialysis/presentation/weight_trends_screen.dart';
 import '../../fluid/data/fluid_repository.dart';
+import '../../fluid/presentation/fluid_hub_screen.dart';
 import '../../fluid/presentation/fluid_intake_entry_screen.dart';
 import '../../fluid/presentation/fluid_output_entry_screen.dart';
 import '../../medications/data/medication_repository.dart';
@@ -533,6 +534,17 @@ class DashboardScreen extends ConsumerWidget {
                       card.id.contains('medication') ||
                       card.title.contains('Medication')) {
                     _openMedicationScreen(context);
+                  } else if (card.id == 'hd_fluid_hub' ||
+                      card.id.contains('fluid_hub') ||
+                      card.title == 'Fluid Hub' ||
+                      card.title.contains('Fluid Hub')) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => FluidHubScreen(
+                          patient: patient,
+                        ),
+                      ),
+                    );
                   } else if (card.id == 'hd_fluid_intake' ||
                       card.id == 'ckd_fluid_allowance' ||
                       card.id == 'uro_fluid_intake' ||

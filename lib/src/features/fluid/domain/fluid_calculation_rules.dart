@@ -22,6 +22,27 @@ class FluidCalculationRules {
     return totalIntakeMl - totalOutputMl;
   }
 
+  /// Computes Native Urine Balance: Total Fluid Intake (24h) - Total Urine Output (24h).
+  ///
+  /// Represents natural renal fluid retention before dialysis per Issue #17.
+  static int calculateNativeUrineBalance({
+    required int totalIntakeMl,
+    required int totalUrineOutputMl,
+  }) {
+    return totalIntakeMl - totalUrineOutputMl;
+  }
+
+  /// Computes Dialytic Fluid Balance: Total Fluid Intake (24h) - (Total Urine Output (24h) + Machine Ultrafiltration (24h)).
+  ///
+  /// Represents comprehensive 24-hour volume status factoring dialysis machine extraction per Issue #17.
+  static int calculateDialyticFluidBalance({
+    required int totalIntakeMl,
+    required int totalUrineOutputMl,
+    required int machineUltrafiltrationMl,
+  }) {
+    return totalIntakeMl - (totalUrineOutputMl + machineUltrafiltrationMl);
+  }
+
   /// Calculates remaining fluid volume permitted today before hitting the allowance.
   /// Returns 0 if cumulative intake matches or exceeds the prescribed allowance.
   static int calculateRemainingAllowance({
@@ -64,12 +85,24 @@ class FluidCalculationRules {
   /// Aggregates 24-hour fluid metrics into a unified [FluidBalanceSummary].
   static FluidBalanceSummary buildSummary({
     required int totalIntakeMl,
-    required int totalOutputMl,
+    int? totalUrineOutputMl,
+    int? machineUltrafiltrationMl,
+    int? totalOutputMl,
     int? dailyFluidAllowanceMl,
   }) {
-    final netBalance = calculateNetBalance(
+    final resolvedUrine = totalUrineOutputMl ?? (totalOutputMl ?? 0);
+    final resolvedUf = machineUltrafiltrationMl ?? 0;
+    final resolvedTotalOutput = totalOutputMl ?? (resolvedUrine + resolvedUf);
+
+    final nativeBalance = calculateNativeUrineBalance(
       totalIntakeMl: totalIntakeMl,
-      totalOutputMl: totalOutputMl,
+      totalUrineOutputMl: resolvedUrine,
+    );
+
+    final dialyticBalance = calculateDialyticFluidBalance(
+      totalIntakeMl: totalIntakeMl,
+      totalUrineOutputMl: resolvedUrine,
+      machineUltrafiltrationMl: resolvedUf,
     );
 
     double? percentage;
@@ -93,8 +126,12 @@ class FluidCalculationRules {
 
     return FluidBalanceSummary(
       totalIntakeMl: totalIntakeMl,
-      totalOutputMl: totalOutputMl,
-      netBalanceMl: netBalance,
+      totalUrineOutputMl: resolvedUrine,
+      machineUltrafiltrationMl: resolvedUf,
+      totalOutputMl: resolvedTotalOutput,
+      nativeUrineBalanceMl: nativeBalance,
+      dialyticFluidBalanceMl: dialyticBalance,
+      netBalanceMl: dialyticBalance,
       dailyFluidAllowanceMl: dailyFluidAllowanceMl,
       intakePercentageOfAllowance: percentage,
       remainingAllowanceMl: remaining,

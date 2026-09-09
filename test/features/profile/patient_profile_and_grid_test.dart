@@ -133,8 +133,8 @@ void main() {
       expect(titles, contains('Check-in'));
       expect(titles, contains('Post-Dialysis Log'));
       expect(titles, contains('Blood Pressure'));
-      expect(titles, contains('Fluid Intake & Binders'));
-      expect(titles, contains('Fluid Output'));
+      expect(titles, contains('Fluid Hub'));
+      expect(titles, contains('Medication & Binders'));
       expect(titles, contains('Modular Clinical Report'));
     });
 

@@ -44,7 +44,17 @@ class ConditionAdaptiveGrid extends StatelessWidget {
             var effectiveCard = card;
 
             if (fluidSummary != null) {
-              if (card.id == 'hd_fluid_intake' || card.id == 'ckd_fluid_allowance' || card.id == 'uro_fluid_intake') {
+              if (card.id == 'hd_fluid_hub' || card.title == 'Fluid Hub') {
+                effectiveCard = ClinicalActionCard(
+                  id: card.id,
+                  title: card.title,
+                  subtitle: fluidSummary!.plainLanguageSummary,
+                  icon: card.icon,
+                  semanticLabel:
+                      'Fluid Hub: 24-hour intake ${fluidSummary!.totalIntakeMl} mL, urine output ${fluidSummary!.totalUrineOutputMl} mL, dialysis removal ${fluidSummary!.machineUltrafiltrationMl} mL, net balance ${fluidSummary!.dialyticFluidBalanceMl >= 0 ? "+" : ""}${fluidSummary!.dialyticFluidBalanceMl} mL',
+                  accentColor: card.accentColor,
+                );
+              } else if (card.id == 'hd_fluid_intake' || card.id == 'ckd_fluid_allowance' || card.id == 'uro_fluid_intake') {
                 effectiveCard = ClinicalActionCard(
                   id: card.id,
                   title: card.title,
