@@ -5,7 +5,6 @@ import 'package:nephrocare/main.dart';
 import 'package:nephrocare/src/core/database/database_provider.dart';
 import 'package:nephrocare/src/core/testing/test_harness.dart';
 import 'package:nephrocare/src/features/blood_pressure/presentation/blood_pressure_entry_screen.dart';
-import 'package:nephrocare/src/features/dashboard/presentation/dashboard_screen.dart';
 import 'package:nephrocare/src/features/profile/domain/clinical_condition.dart';
 
 void main() {
@@ -157,34 +156,25 @@ void main() {
     testWidgets(
       'Dashboard Blood Pressure clinical card navigates to BloodPressureEntryScreen',
       (WidgetTester tester) async {
-        final patient = await harness.createPatient(
+        await harness.createPatient(
           name: 'Eleanor Vance',
           diagnosis: ClinicalCondition.hemodialysis.name,
           vascularAccessType: VascularAccessType.arteriovenousFistula.name,
           fistulaArmLocation: AccessLocation.leftArm.name,
         );
 
-        // Render DashboardScreen directly to avoid NephroCareHomePage's
-        // additional stream layer, but DashboardScreen itself watches Drift
-        // reactive streams (fluidBalance24h, catheterLifespan) that never
-        // quiesce — use pump() instead of pumpAndSettle() to avoid hanging.
         await tester.pumpWidget(
-          createTestApp(
-            home: DashboardScreen(patient: patient),
-          ),
+          createTestApp(),
         );
-        await tester.pump();
-        await tester.pump();
+        await tester.pumpAndSettle();
 
-        // Dashboard renders Condition-Adaptive Grid with Blood Pressure card
+        // Dashboard is rendered with 6 cards
         expect(find.text('NephroCare'), findsOneWidget);
         expect(find.text('Blood Pressure'), findsOneWidget);
 
-        // Tap Blood Pressure card to navigate
+        // Tap the Blood Pressure card
         await tester.tap(find.text('Blood Pressure'));
-        await tester.pump(); // Start route transition
-        await tester.pump(); // Build pushed route
-        await tester.pump(const Duration(milliseconds: 350)); // Complete 300ms animation
+        await tester.pumpAndSettle();
 
         // Should navigate to BloodPressureEntryScreen
         expect(find.byKey(const Key('fistula_arm_safety_banner')), findsOneWidget);

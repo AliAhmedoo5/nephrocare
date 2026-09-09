@@ -221,7 +221,7 @@ void main() {
     testWidgets(
       'Dashboard cards Check-in and Post-Dialysis Log navigate to respective screens',
       (WidgetTester tester) async {
-        final patient = await harness.createPatient(
+        await harness.createPatient(
           name: 'Fox Mulder',
           diagnosis: ClinicalCondition.hemodialysis.name,
           prescribedDryWeightKg: 74.0,
@@ -229,36 +229,25 @@ void main() {
           fistulaArmLocation: AccessLocation.leftArm.name,
         );
 
-        // Render DashboardScreen directly — it watches Drift reactive streams
-        // that never quiesce, so use pump() instead of pumpAndSettle().
-        await tester.pumpWidget(
-          createTestApp(home: DashboardScreen(patient: patient)),
-        );
-        await tester.pump();
-        await tester.pump();
+        await tester.pumpWidget(createTestApp());
+        await tester.pumpAndSettle();
 
         // 1. Tap Check-in card
         expect(find.text('Check-in'), findsOneWidget);
         await tester.tap(find.text('Check-in'));
-        await tester.pump();
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pumpAndSettle();
 
         expect(find.text('Hemodialysis Check-In'), findsOneWidget);
         expect(find.byKey(const Key('pre_weight_input')), findsOneWidget);
 
         // Pop back to dashboard
         Navigator.of(tester.element(find.text('Hemodialysis Check-In'))).pop();
-        await tester.pump();
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pumpAndSettle();
 
         // 2. Tap Post-Dialysis Log card
         expect(find.text('Post-Dialysis Log'), findsOneWidget);
         await tester.tap(find.text('Post-Dialysis Log'));
-        await tester.pump();
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pumpAndSettle();
 
         expect(find.text('Post-Dialysis Session Log'), findsOneWidget);
         expect(find.byKey(const Key('post_weight_input')), findsOneWidget);
@@ -519,17 +508,13 @@ void main() {
             home: DashboardScreen(patient: pdPatient),
           ),
         );
-        // DashboardScreen watches Drift reactive streams that never quiesce.
-        await tester.pump();
-        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Tap Exchange Log card
         final exchangeCard = find.text('Exchange Log');
         await tester.ensureVisible(exchangeCard);
         await tester.tap(exchangeCard);
-        await tester.pump();
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pumpAndSettle();
 
         expect(find.byType(PeritonealExchangeScreen), findsOneWidget);
       },

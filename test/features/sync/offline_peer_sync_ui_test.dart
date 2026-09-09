@@ -37,18 +37,13 @@ void main() {
       );
 
       await tester.pumpWidget(buildTestApp(DashboardScreen(patient: patient)));
-      // DashboardScreen watches Drift reactive streams that never quiesce —
-      // use pump() instead of pumpAndSettle() to avoid hanging.
-      await tester.pump();
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       final syncButton = find.byKey(const Key('open_peer_sync_button'));
       expect(syncButton, findsOneWidget);
 
       await tester.tap(syncButton);
-      await tester.pump();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
 
       expect(find.byType(OfflinePeerSyncScreen), findsOneWidget);
       expect(find.text('Offline Peer-to-Peer Sync'), findsOneWidget);
