@@ -84,7 +84,10 @@ void main() {
       );
 
       await tester.pumpWidget(createTestApp(home: DashboardScreen(patient: patient)));
-      await tester.pumpAndSettle();
+      // DashboardScreen watches Drift reactive streams that never quiesce —
+      // use pump() instead of pumpAndSettle() to avoid hanging.
+      await tester.pump();
+      await tester.pump();
 
       // Verify open reports button exists in Dashboard AppBar
       final reportButton = find.byKey(const Key('open_reports_button'));
@@ -92,7 +95,9 @@ void main() {
 
       // Tap to open Modular Clinical Report screen
       await tester.tap(reportButton);
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
 
       // Verify navigation into report generator interface
       expect(find.text('Modular Clinical Report'), findsOneWidget);
@@ -106,17 +111,21 @@ void main() {
       );
 
       await tester.pumpWidget(createTestApp(home: DashboardScreen(patient: patient)));
-      await tester.pumpAndSettle();
+      // DashboardScreen watches Drift reactive streams that never quiesce.
+      await tester.pump();
+      await tester.pump();
 
       // Find the Modular Clinical Report card on the Condition-Adaptive Grid
       final gridCard = find.text('Modular Clinical Report');
       expect(gridCard, findsOneWidget);
 
       await tester.ensureVisible(gridCard);
-      await tester.pumpAndSettle();
+      await tester.pump();
 
       await tester.tap(gridCard);
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
 
       // Verify navigated to report screen
       expect(find.byKey(const Key('report_date_window_14d')), findsOneWidget);
