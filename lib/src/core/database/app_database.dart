@@ -136,6 +136,42 @@ class AccessInspections extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+// 8. Medications Table
+class Medications extends Table {
+  TextColumn get id => text().clientDefault(() => _uuid.v4())();
+  TextColumn get patientId => text().references(Patients, #id)();
+  TextColumn get name => text()();
+  TextColumn get dosage => text()();
+  TextColumn get frequency => text()();
+  TextColumn get instructions => text().nullable()();
+  BoolColumn get isPhosphateBinder => boolean().withDefault(const Constant(false))();
+  BoolColumn get isAntiHypertensive => boolean().withDefault(const Constant(false))();
+  BoolColumn get isActive => boolean().withDefault(const Constant(true))();
+  DateTimeColumn get createdAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
+  DateTimeColumn get updatedAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+// 9. Medication Administrations Table
+class MedicationAdministrations extends Table {
+  TextColumn get id => text().clientDefault(() => _uuid.v4())();
+  TextColumn get patientId => text().references(Patients, #id)();
+  TextColumn get medicationId => text().references(Medications, #id)();
+  TextColumn get medicationName => text()();
+  TextColumn get dosage => text()();
+  DateTimeColumn get administeredAt => dateTime()();
+  TextColumn get notes => text().nullable()();
+  BoolColumn get isPhosphateBinder => boolean().withDefault(const Constant(false))();
+  BoolColumn get isAntiHypertensive => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
+  DateTimeColumn get updatedAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DriftDatabase(tables: [
   Patients,
   DialysisSessions,
@@ -144,6 +180,8 @@ class AccessInspections extends Table {
   FluidOutputLogs,
   CatheterEvents,
   AccessInspections,
+  Medications,
+  MedicationAdministrations,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());

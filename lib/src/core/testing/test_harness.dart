@@ -14,6 +14,7 @@ import '../../features/catheter/domain/catheter_lifespan_rules.dart';
 import '../../features/dialysis/data/dialysis_session_repository.dart';
 import '../../features/fluid/data/fluid_repository.dart';
 import '../../features/fluid/domain/fluid_balance_summary.dart';
+import '../../features/medications/data/medication_repository.dart';
 import '../../features/profile/data/patient_repository.dart';
 import '../../features/reports/data/clinical_report_repository.dart';
 import '../../features/reports/domain/clinical_report_config.dart';
@@ -550,6 +551,129 @@ class NephroTestHarness {
       bundle,
       asCaregiverMirror: asCaregiverMirror,
     );
+  }
+
+  /// Clinical helper to prescribe a medication regimen.
+  Future<Medication> createMedication({
+    String? id,
+    required String patientId,
+    required String name,
+    required String dosage,
+    required String frequency,
+    String? instructions,
+    bool isPhosphateBinder = false,
+    bool isAntiHypertensive = false,
+    bool isActive = true,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return MedicationRepository(database).createMedication(
+      id: id,
+      patientId: patientId,
+      name: name,
+      dosage: dosage,
+      frequency: frequency,
+      instructions: instructions,
+      isPhosphateBinder: isPhosphateBinder,
+      isAntiHypertensive: isAntiHypertensive,
+      isActive: isActive,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+    );
+  }
+
+  /// Clinical helper to update a prescribed medication regimen.
+  Future<Medication> updateMedication({
+    required String id,
+    String? name,
+    String? dosage,
+    String? frequency,
+    String? instructions,
+    bool? isPhosphateBinder,
+    bool? isAntiHypertensive,
+    bool? isActive,
+    DateTime? updatedAt,
+  }) {
+    return MedicationRepository(database).updateMedication(
+      id: id,
+      name: name,
+      dosage: dosage,
+      frequency: frequency,
+      instructions: instructions,
+      isPhosphateBinder: isPhosphateBinder,
+      isAntiHypertensive: isAntiHypertensive,
+      isActive: isActive,
+      updatedAt: updatedAt,
+    );
+  }
+
+  /// Clinical helper to query active prescribed medications for a patient.
+  Future<List<Medication>> getActiveMedications(String patientId) {
+    return MedicationRepository(database).getActiveMedications(patientId);
+  }
+
+  /// Clinical helper to query all medications for a patient.
+  Future<List<Medication>> getAllMedications(String patientId) {
+    return MedicationRepository(database).getAllMedications(patientId);
+  }
+
+  /// Clinical helper to record a 1-tap medication administration.
+  Future<MedicationAdministration> recordMedicationAdministration({
+    String? id,
+    required String patientId,
+    required String medicationId,
+    DateTime? administeredAt,
+    String? dosage,
+    String? medicationName,
+    String? notes,
+  }) {
+    return MedicationRepository(database).recordAdministration(
+      id: id,
+      patientId: patientId,
+      medicationId: medicationId,
+      administeredAt: administeredAt,
+      dosage: dosage,
+      medicationName: medicationName,
+      notes: notes,
+    );
+  }
+
+  /// Clinical helper to update a medication administration (to correct accidental entries).
+  Future<MedicationAdministration> updateMedicationAdministration({
+    required String id,
+    DateTime? administeredAt,
+    String? dosage,
+    String? notes,
+  }) {
+    return MedicationRepository(database).updateAdministration(
+      id: id,
+      administeredAt: administeredAt,
+      dosage: dosage,
+      notes: notes,
+    );
+  }
+
+  /// Clinical helper to delete a medication administration record.
+  Future<int> deleteMedicationAdministration(String id) {
+    return MedicationRepository(database).deleteAdministration(id);
+  }
+
+  /// Clinical helper to query medication administrations for a patient.
+  Future<List<MedicationAdministration>> getMedicationAdministrations(
+    String patientId, {
+    DateTime? since,
+  }) {
+    return MedicationRepository(database).getAdministrations(patientId, since: since);
+  }
+
+  /// Clinical helper to check if patient has active phosphate binders.
+  Future<bool> hasActivePhosphateBinders(String patientId) {
+    return MedicationRepository(database).hasActivePhosphateBinders(patientId);
+  }
+
+  /// Clinical helper to query active phosphate binders.
+  Future<List<Medication>> getActivePhosphateBinders(String patientId) {
+    return MedicationRepository(database).getActivePhosphateBinders(patientId);
   }
 
   /// Tears down and disposes container and in-memory database connections.

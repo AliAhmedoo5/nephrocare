@@ -14,6 +14,8 @@ import '../../dialysis/presentation/weight_trends_screen.dart';
 import '../../fluid/data/fluid_repository.dart';
 import '../../fluid/presentation/fluid_intake_entry_screen.dart';
 import '../../fluid/presentation/fluid_output_entry_screen.dart';
+import '../../medications/data/medication_repository.dart';
+import '../../medications/presentation/medication_screen.dart';
 import '../../profile/domain/clinical_condition.dart';
 import '../../profile/presentation/patient_profile_setup_screen.dart';
 import '../../profile/presentation/profile_management_screen.dart';
@@ -73,6 +75,14 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
+  void _openMedicationScreen(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => MedicationScreen(patient: patient),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -83,6 +93,8 @@ class DashboardScreen extends ConsumerWidget {
     final fluidSummary = fluidBalanceAsync.valueOrNull;
     final catheterSummaryAsync = ref.watch(catheterLifespanSummaryStreamProvider(patient.id));
     final catheterSummary = catheterSummaryAsync.valueOrNull;
+    final activeMedsAsync = ref.watch(activeMedicationsStreamProvider(patient.id));
+    final activeMeds = activeMedsAsync.valueOrNull ?? const [];
 
     return Scaffold(
       appBar: AppBar(
@@ -92,6 +104,12 @@ class DashboardScreen extends ConsumerWidget {
         ),
         backgroundColor: theme.colorScheme.primaryContainer,
         actions: [
+          IconButton(
+            key: const Key('open_medications_button'),
+            icon: const Icon(Icons.medication_rounded),
+            tooltip: 'Medication Regimen & Administrations',
+            onPressed: () => _openMedicationScreen(context),
+          ),
           IconButton(
             key: const Key('open_catheter_button'),
             icon: const Icon(Icons.timer_outlined),
@@ -351,6 +369,16 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ],
 
+              // 4. Quick Medication Administration (1-Tap)
+              if (activeMeds.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                _DashboardQuickMedicationsCard(
+                  patient: patient,
+                  medications: activeMeds,
+                  onOpenMedicationScreen: () => _openMedicationScreen(context),
+                ),
+              ],
+
               const SizedBox(height: 20),
 
               // Section Header
@@ -362,7 +390,7 @@ class DashboardScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
 
-              // 3. Condition-Adaptive Grid (Exactly 6 Cards)
+              // 5. Condition-Adaptive Grid (Exactly 6 Cards)
               ConditionAdaptiveGrid(
                 conditionName: patient.diagnosis,
                 fluidSummary: fluidSummary,
@@ -402,10 +430,13 @@ class DashboardScreen extends ConsumerWidget {
                         ),
                       ),
                     );
+                  } else if (card.id == 'ckd_medication_binders' ||
+                      card.id.contains('medication') ||
+                      card.title.contains('Medication')) {
+                    _openMedicationScreen(context);
                   } else if (card.id == 'hd_fluid_intake' ||
                       card.id == 'ckd_fluid_allowance' ||
                       card.id == 'uro_fluid_intake' ||
-                      card.id == 'ckd_medication_binders' ||
                       card.title.contains('Fluid Intake') ||
                       card.title.contains('Fluid Allowance')) {
                     Navigator.of(context).push(
@@ -533,3 +564,134 @@ class _MetricItem extends StatelessWidget {
     );
   }
 }
+
+/// Quick 1-tap medication administration card on Dashboard.
+class _DashboardQuickMedicationsCard extends ConsumerWidget {
+  final Patient patient;
+  final List<Medication> medications;
+  final VoidCallback onOpenMedicationScreen;
+
+  const _DashboardQuickMedicationsCard({
+    required this.patient,
+    required this.medications,
+    required this.onOpenMedicationScreen,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+
+    return Card(
+      key: const Key('dashboard_quick_medications_card'),
+      elevation: 0,
+      color: theme.colorScheme.surfaceContainerHighest,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.medication_rounded, color: theme.colorScheme.primary, size: 22),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Quick Medication Dose',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                TextButton(
+                  onPressed: onOpenMedicationScreen,
+                  child: const Text('Manage'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ListView.separated(
+              physics: const NeverScrollableScrollPhysics(),
+              shrinkWrap: true,
+              itemCount: medications.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                final med = medications[index];
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: theme.colorScheme.outlineVariant),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              med.name,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${med.dosage} • ${med.frequency}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        height: 48,
+                        child: ElevatedButton.icon(
+                          key: Key('dashboard_quick_take_${med.id}'),
+                          icon: const Icon(Icons.check, size: 18),
+                          label: const Text('Take', style: TextStyle(fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.colorScheme.primary,
+                            foregroundColor: theme.colorScheme.onPrimary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          onPressed: () async {
+                            await ref.read(medicationRepositoryProvider).recordAdministration(
+                                  patientId: patient.id,
+                                  medicationId: med.id,
+                                );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Administered ${med.name} (${med.dosage})'),
+                                  backgroundColor: theme.colorScheme.primary,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

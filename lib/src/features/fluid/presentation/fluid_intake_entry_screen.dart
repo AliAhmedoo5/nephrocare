@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../medications/data/medication_repository.dart';
 import '../../profile/data/patient_repository.dart';
 import '../data/fluid_repository.dart';
 import '../domain/fluid_balance_summary.dart';
@@ -70,6 +71,17 @@ class _FluidIntakeEntryScreenState extends ConsumerState<FluidIntakeEntryScreen>
             recordedAt: DateTime.now().toUtc(),
           );
 
+      if (_phosphateBinderTaken) {
+        final binders = await ref.read(medicationRepositoryProvider).getActivePhosphateBinders(patient.id);
+        for (final binder in binders) {
+          await ref.read(medicationRepositoryProvider).recordAdministration(
+                patientId: patient.id,
+                medicationId: binder.id,
+                notes: 'Synchronized with fluid intake ($_selectedBeverage $volume mL)',
+              );
+        }
+      }
+
       if (mounted) {
         final binderNote = _phosphateBinderTaken ? ' with Phosphate Binder' : '';
         _volumeController.clear();
@@ -117,6 +129,8 @@ class _FluidIntakeEntryScreenState extends ConsumerState<FluidIntakeEntryScreen>
     }
 
     final balanceAsync = ref.watch(fluidBalance24hStreamProvider(patient.id));
+    final activeBindersAsync = ref.watch(activePhosphateBindersStreamProvider(patient.id));
+    final activeBinders = activeBindersAsync.valueOrNull ?? const [];
 
     return Scaffold(
       appBar: AppBar(
@@ -328,6 +342,39 @@ class _FluidIntakeEntryScreenState extends ConsumerState<FluidIntakeEntryScreen>
                                     height: 1.3,
                                   ),
                                 ),
+                                if (activeBinders.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.surface,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: theme.colorScheme.tertiary.withValues(alpha: 0.5),
+                                      ),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Active Prescribed Binders:',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                            color: theme.colorScheme.tertiary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        ...activeBinders.map((b) => Text(
+                                              '• ${b.name} (${b.dosage})',
+                                              style: theme.textTheme.bodySmall?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            )),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                                 const Divider(height: 20),
                                 CheckboxListTile(
                                   key: const Key('phosphate_binder_toggle'),
@@ -339,9 +386,11 @@ class _FluidIntakeEntryScreenState extends ConsumerState<FluidIntakeEntryScreen>
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                  subtitle: const Text(
-                                    'Recorded with this intake event',
-                                    style: TextStyle(fontSize: 12),
+                                  subtitle: Text(
+                                    activeBinders.isNotEmpty
+                                        ? 'Synchronize administration for: ${activeBinders.map((b) => b.name).join(", ")}'
+                                        : 'Recorded with this intake event',
+                                    style: const TextStyle(fontSize: 12),
                                   ),
                                   value: _phosphateBinderTaken,
                                   onChanged: (val) {

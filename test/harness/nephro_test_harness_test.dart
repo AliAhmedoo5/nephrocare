@@ -1335,5 +1335,125 @@ void main() {
       expect(replacementSummary.daysRemaining, equals(90));
       expect(replacementSummary.isCautiRiskActive, isFalse);
     });
+
+    test('Top-level test harness verifies Medication Regimen management, 1-tap administration, and meal-binder synchronization', () async {
+      final now = DateTime.now().toUtc();
+      final patient = await harness.createPatient(
+        name: 'Robert Oppenheimer',
+        diagnosis: 'hemodialysis',
+        dailyFluidAllowanceMl: 1000,
+        prescribedDryWeightKg: 68.0,
+      );
+
+      // 1. Prescribe active regimens with clinical classifications
+      final binderMed = await harness.createMedication(
+        patientId: patient.id,
+        name: 'Sevelamer Carbonate',
+        dosage: '800 mg',
+        frequency: 'Three times daily with meals',
+        instructions: 'Take during or immediately after meals to sequester dietary phosphorus',
+        isPhosphateBinder: true,
+        isAntiHypertensive: false,
+        isActive: true,
+      );
+
+      final antiHypertensiveMed = await harness.createMedication(
+        patientId: patient.id,
+        name: 'Amlodipine Besylate',
+        dosage: '5 mg',
+        frequency: 'Once daily morning',
+        instructions: 'Monitor blood pressure before and 30 minutes after taking',
+        isPhosphateBinder: false,
+        isAntiHypertensive: true,
+        isActive: true,
+      );
+
+      final discontinuedMed = await harness.createMedication(
+        patientId: patient.id,
+        name: 'Old Diuretic',
+        dosage: '20 mg',
+        frequency: 'Once daily',
+        isActive: false,
+      );
+
+      // Verify active medications query filters out inactive
+      final activeMeds = await harness.getActiveMedications(patient.id);
+      expect(activeMeds.length, equals(2));
+      expect(activeMeds.any((m) => m.id == binderMed.id), isTrue);
+      expect(activeMeds.any((m) => m.id == antiHypertensiveMed.id), isTrue);
+      expect(activeMeds.any((m) => m.id == discontinuedMed.id), isFalse);
+
+      final allMeds = await harness.getAllMedications(patient.id);
+      expect(allMeds.length, equals(3));
+
+      // 2. Verify active Phosphate Binder detection for meal/fluid intake prompts
+      expect(await harness.hasActivePhosphateBinders(patient.id), isTrue);
+      final activeBinders = await harness.getActivePhosphateBinders(patient.id);
+      expect(activeBinders.length, equals(1));
+      expect(activeBinders.first.name, equals('Sevelamer Carbonate'));
+
+      // 3. 1-Tap Administration Logging from dashboard or medication screen
+      final adminTime = now.subtract(const Duration(hours: 1));
+      final adminRecord = await harness.recordMedicationAdministration(
+        patientId: patient.id,
+        medicationId: binderMed.id,
+        administeredAt: adminTime,
+      );
+
+      expect(adminRecord.id, isNotEmpty);
+      expect(adminRecord.patientId, equals(patient.id));
+      expect(adminRecord.medicationId, equals(binderMed.id));
+      expect(adminRecord.medicationName, equals('Sevelamer Carbonate'));
+      expect(adminRecord.dosage, equals('800 mg'));
+      expect(adminRecord.isPhosphateBinder, isTrue);
+      expect(adminRecord.isAntiHypertensive, isFalse);
+
+      // Verify 1-tap administration of anti-hypertensive
+      final ahAdmin = await harness.recordMedicationAdministration(
+        patientId: patient.id,
+        medicationId: antiHypertensiveMed.id,
+      );
+      expect(ahAdmin.isAntiHypertensive, isTrue);
+      expect(ahAdmin.medicationName, equals('Amlodipine Besylate'));
+
+      // Verify query returns both administrations
+      final admins = await harness.getMedicationAdministrations(patient.id);
+      expect(admins.length, equals(2));
+
+      // 4. Meal and Fluid Intake synchronization: fluid intake with phosphate binder taken
+      final intake = await harness.recordFluidIntake(
+        patientId: patient.id,
+        volumeMl: 250,
+        beverageType: 'Water with Lunch',
+        phosphateBinderTaken: true,
+        recordedAt: now,
+      );
+      expect(intake.phosphateBinderTaken, isTrue);
+
+      // 5. Editing and deleting administration records to ensure adherence data integrity
+      final updatedAdmin = await harness.updateMedicationAdministration(
+        id: adminRecord.id,
+        dosage: '1600 mg',
+        notes: 'Double dose with heavy protein meal per nephrologist advice',
+      );
+      expect(updatedAdmin.dosage, equals('1600 mg'));
+      expect(updatedAdmin.notes, equals('Double dose with heavy protein meal per nephrologist advice'));
+
+      // Delete accidental administration
+      final accidentalAdmin = await harness.recordMedicationAdministration(
+        patientId: patient.id,
+        medicationId: binderMed.id,
+        notes: 'Accidental double tap entry',
+      );
+      final preDeleteList = await harness.getMedicationAdministrations(patient.id);
+      expect(preDeleteList.length, equals(3));
+
+      final deletedCount = await harness.deleteMedicationAdministration(accidentalAdmin.id);
+      expect(deletedCount, equals(1));
+
+      final postDeleteList = await harness.getMedicationAdministrations(patient.id);
+      expect(postDeleteList.length, equals(2));
+      expect(postDeleteList.any((a) => a.id == accidentalAdmin.id), isFalse);
+    });
   });
 }
