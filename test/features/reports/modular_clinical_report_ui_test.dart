@@ -51,12 +51,15 @@ void main() {
       expect(find.byKey(const Key('report_date_window_30d')), findsOneWidget);
       expect(find.byKey(const Key('report_date_window_custom')), findsOneWidget);
 
-      // Verify all 5 Clinical Module checklist toggles are present and default to enabled
+      // Verify all 8 Clinical Module checklist toggles are present and default to enabled
       expect(find.byKey(const Key('module_toggle_demographics')), findsOneWidget);
       expect(find.byKey(const Key('module_toggle_weight_trends')), findsOneWidget);
       expect(find.byKey(const Key('module_toggle_bp')), findsOneWidget);
       expect(find.byKey(const Key('module_toggle_fluid')), findsOneWidget);
       expect(find.byKey(const Key('module_toggle_catheter')), findsOneWidget);
+      expect(find.byKey(const Key('module_toggle_paired_bp')), findsOneWidget);
+      expect(find.byKey(const Key('module_toggle_dual_fluid')), findsOneWidget);
+      expect(find.byKey(const Key('module_toggle_medication_regimen')), findsOneWidget);
 
       // Switch date window from 14d to 7d
       await tester.tap(find.byKey(const Key('report_date_window_7d')));
@@ -69,10 +72,23 @@ void main() {
       expect(find.byKey(const Key('custom_end_date_button')), findsOneWidget);
 
       // Toggle off Weight Trends module
+      await tester.ensureVisible(find.byKey(const Key('module_toggle_weight_trends')));
       await tester.tap(find.byKey(const Key('module_toggle_weight_trends')));
       await tester.pumpAndSettle();
+      expect(tester.widget<CheckboxListTile>(find.byKey(const Key('module_toggle_weight_trends'))).value, isFalse);
+
+      // Toggle off and on Paired BP module
+      await tester.ensureVisible(find.byKey(const Key('module_toggle_paired_bp')));
+      await tester.tap(find.byKey(const Key('module_toggle_paired_bp')));
+      await tester.pumpAndSettle();
+      expect(tester.widget<CheckboxListTile>(find.byKey(const Key('module_toggle_paired_bp'))).value, isFalse);
+
+      await tester.tap(find.byKey(const Key('module_toggle_paired_bp')));
+      await tester.pumpAndSettle();
+      expect(tester.widget<CheckboxListTile>(find.byKey(const Key('module_toggle_paired_bp'))).value, isTrue);
 
       // Verify Preview and Share buttons are rendered
+      await tester.ensureVisible(find.byKey(const Key('preview_report_button')));
       expect(find.byKey(const Key('preview_report_button')), findsOneWidget);
       expect(find.byKey(const Key('export_share_button')), findsOneWidget);
     });
@@ -148,9 +164,13 @@ void main() {
       expect(find.text('Please select at least one clinical module to include in the report.'), findsOneWidget);
 
       // Tap 'Select All' to restore all modules
+      await tester.ensureVisible(find.text('Select All'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Select All'));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.byKey(const Key('module_toggle_demographics')));
+      await tester.pumpAndSettle();
       final demographicsTile = tester.widget<CheckboxListTile>(find.byKey(const Key('module_toggle_demographics')));
       expect(demographicsTile.value, isTrue);
     });

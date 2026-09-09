@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../../core/database/database_provider.dart';
+import '../../blood_pressure/domain/paired_bp_assessment.dart';
 import '../../catheter/data/catheter_repository.dart';
 import '../../catheter/domain/catheter_lifespan_rules.dart';
 import '../../fluid/data/fluid_repository.dart';
 import '../../fluid/domain/fluid_balance_summary.dart';
+import '../../fluid/domain/fluid_calculation_rules.dart';
 import '../domain/clinical_report_config.dart';
 import '../domain/clinical_report_data.dart';
 
@@ -47,6 +49,10 @@ class ClinicalReportRepository {
     List<AccessInspection> accessInspections = const [];
     List<CatheterEvent> catheterEvents = const [];
     CatheterLifespanSummary? catheterSummary;
+    List<PairedBpAssessment> pairedBpAssessments = const [];
+    DualFluidBalanceSummary? dualFluidSummary;
+    List<Medication> medications = const [];
+    List<MedicationAdministration> medicationAdministrations = const [];
 
     // 1. Weight Trends Module
     if (config.isModuleEnabled(ClinicalReportModule.weightTrends)) {
@@ -114,6 +120,127 @@ class ClinicalReportRepository {
       catheterSummary = await _catheterRepository.getCatheterLifespanSummary(patientId, asOf: dateRange.end);
     }
 
+    // 5. Paired Anti-Hypertensive Blood Pressure Table Module
+    if (config.isModuleEnabled(ClinicalReportModule.pairedAntiHypertensiveBp)) {
+      final pairedLogs = await (_database.select(_database.bloodPressureLogs)
+            ..where((tbl) =>
+                tbl.patientId.equals(patientId) &
+                tbl.isPairedAssessment.equals(true))
+            ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.recordedAt)]))
+          .get();
+
+      final allPairs = PairedBpAssessment.groupFromLogs(pairedLogs);
+      pairedBpAssessments = allPairs
+          .where((p) =>
+              p.baseline.recordedAt.isAfter(dateRange.start.subtract(const Duration(milliseconds: 1))) &&
+              p.baseline.recordedAt.isBefore(dateRange.end.add(const Duration(milliseconds: 1))))
+          .toList();
+    }
+
+    // 6. Dual Fluid Balance Module
+    if (config.isModuleEnabled(ClinicalReportModule.dualFluidBalance)) {
+      final intakesForDual = fluidIntakeLogs.isNotEmpty
+          ? fluidIntakeLogs
+          : await (_database.select(_database.fluidIntakeLogs)
+                ..where((tbl) =>
+                    tbl.patientId.equals(patientId) &
+                    tbl.recordedAt.isBiggerOrEqualValue(dateRange.start) &
+                    tbl.recordedAt.isSmallerOrEqualValue(dateRange.end)))
+              .get();
+
+      final outputsForDual = fluidOutputLogs.isNotEmpty
+          ? fluidOutputLogs
+          : await (_database.select(_database.fluidOutputLogs)
+                ..where((tbl) =>
+                    tbl.patientId.equals(patientId) &
+                    tbl.recordedAt.isBiggerOrEqualValue(dateRange.start) &
+                    tbl.recordedAt.isSmallerOrEqualValue(dateRange.end)))
+              .get();
+
+      final completedSessionsForUf = await (_database.select(_database.dialysisSessions)
+            ..where((tbl) =>
+                tbl.patientId.equals(patientId) &
+                tbl.status.equals('completed') &
+                tbl.startedAt.isBiggerOrEqualValue(dateRange.start) &
+                tbl.startedAt.isSmallerOrEqualValue(dateRange.end) &
+                tbl.actualFluidRemovedMl.isNotNull()))
+          .get();
+
+      final totalIntakeMl = intakesForDual.fold<int>(0, (sum, log) => sum + log.volumeMl);
+      final totalUrineOutputMl = outputsForDual
+          .where((tbl) => tbl.outputType == 'urine')
+          .fold<int>(0, (sum, log) => sum + log.volumeMl);
+      final manualUfMl = outputsForDual
+          .where((tbl) => tbl.outputType == 'ultrafiltration')
+          .fold<int>(0, (sum, log) => sum + log.volumeMl);
+
+      int dialysisUfMl = 0;
+      int completedSessionsWithUfCount = 0;
+      for (final session in completedSessionsForUf) {
+        if (session.actualFluidRemovedMl != null && session.actualFluidRemovedMl! > 0) {
+          dialysisUfMl += session.actualFluidRemovedMl!;
+          completedSessionsWithUfCount++;
+        }
+      }
+
+      final machineUltrafiltrationMl = dialysisUfMl + manualUfMl;
+      final totalOutputMl = totalUrineOutputMl + machineUltrafiltrationMl;
+      final bodyFluidRetentionMl = FluidCalculationRules.calculateNativeUrineBalance(
+        totalIntakeMl: totalIntakeMl,
+        totalUrineOutputMl: totalUrineOutputMl,
+      );
+      final dialyticExtractionMl = machineUltrafiltrationMl;
+      final netDialyticBalanceMl = FluidCalculationRules.calculateDialyticFluidBalance(
+        totalIntakeMl: totalIntakeMl,
+        totalUrineOutputMl: totalUrineOutputMl,
+        machineUltrafiltrationMl: machineUltrafiltrationMl,
+      );
+
+      dualFluidSummary = DualFluidBalanceSummary(
+        totalIntakeMl: totalIntakeMl,
+        totalUrineOutputMl: totalUrineOutputMl,
+        machineUltrafiltrationMl: machineUltrafiltrationMl,
+        totalOutputMl: totalOutputMl,
+        bodyFluidRetentionMl: bodyFluidRetentionMl,
+        dialyticExtractionMl: dialyticExtractionMl,
+        netDialyticBalanceMl: netDialyticBalanceMl,
+        intakeLogCount: intakesForDual.length,
+        urineOutputLogCount: outputsForDual.where((tbl) => tbl.outputType == 'urine').length,
+        dialysisSessionCount: completedSessionsWithUfCount,
+      );
+    }
+
+    // 7. Medication Regimen & Adherence Summary Module
+    if (config.isModuleEnabled(ClinicalReportModule.medicationRegimenAndAdherence)) {
+      medications = await (_database.select(_database.medications)
+            ..where((tbl) => tbl.patientId.equals(patientId) & tbl.isActive.equals(true))
+            ..orderBy([(tbl) => drift.OrderingTerm.asc(tbl.name)]))
+          .get();
+
+      medicationAdministrations = await (_database.select(_database.medicationAdministrations)
+            ..where((tbl) =>
+                tbl.patientId.equals(patientId) &
+                tbl.administeredAt.isBiggerOrEqualValue(dateRange.start) &
+                tbl.administeredAt.isSmallerOrEqualValue(dateRange.end))
+            ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.administeredAt)]))
+          .get();
+    }
+
+    // If Paired BP is enabled, ensure linked administrations are available for labeling
+    if (pairedBpAssessments.isNotEmpty) {
+      final linkedAdminIds = pairedBpAssessments
+          .map((p) => p.medicationAdministrationId)
+          .whereType<String>()
+          .where((id) => !medicationAdministrations.any((a) => a.id == id))
+          .toSet();
+      if (linkedAdminIds.isNotEmpty) {
+        final additionalAdmins = await (_database.select(_database.medicationAdministrations)
+              ..where((tbl) => tbl.id.isIn(linkedAdminIds)))
+            .get();
+        medicationAdministrations = [...medicationAdministrations, ...additionalAdmins];
+      }
+    }
+
     return ClinicalReportData(
       patient: patient,
       config: config,
@@ -127,6 +254,10 @@ class ClinicalReportRepository {
       accessInspections: accessInspections,
       catheterEvents: catheterEvents,
       catheterLifespanSummary: catheterSummary,
+      pairedBpAssessments: pairedBpAssessments,
+      dualFluidBalanceSummary: dualFluidSummary,
+      medications: medications,
+      medicationAdministrations: medicationAdministrations,
     );
   }
 }

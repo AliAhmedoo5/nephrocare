@@ -23,6 +23,35 @@ class PairedBpAssessment {
   @override
   String toString() =>
       'PairedBpAssessment(pairedAssessmentId: $pairedAssessmentId, baseline: ${baseline.systolic}/${baseline.diastolic}, followUp: ${followUp != null ? '${followUp!.systolic}/${followUp!.diastolic}' : 'pending'}, elapsedMinutes: $elapsedMinutes)';
+
+  /// Groups paired baseline and follow-up blood pressure logs into [PairedBpAssessment] models.
+  static List<PairedBpAssessment> groupFromLogs(List<BloodPressureLog> logs) {
+    final Map<String, BloodPressureLog> baselines = {};
+    final Map<String, BloodPressureLog> followUps = {};
+
+    for (final log in logs) {
+      final pairId = log.pairedAssessmentId ?? log.id;
+      if (log.pairedRole == PairedAssessmentRole.baseline) {
+        baselines[pairId] = log;
+      } else if (log.pairedRole == PairedAssessmentRole.followUp) {
+        followUps[pairId] = log;
+      }
+    }
+
+    final List<PairedBpAssessment> pairs = [];
+    for (final entry in baselines.entries) {
+      pairs.add(
+        PairedBpAssessment(
+          baseline: entry.value,
+          followUp: followUps[entry.key],
+          medicationAdministrationId: entry.value.medicationAdministrationId,
+        ),
+      );
+    }
+
+    pairs.sort((a, b) => b.baseline.recordedAt.compareTo(a.baseline.recordedAt));
+    return pairs;
+  }
 }
 
 /// Constants defining clinical roles within a paired blood pressure assessment.

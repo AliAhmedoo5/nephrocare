@@ -157,5 +157,119 @@ void main() {
       expect(pdfBytes, isNotEmpty);
       expect(utf8.decode(pdfBytes.sublist(0, 5)), equals('%PDF-'));
     });
+
+    test('Compiles PDF with Paired BP table, Dual Fluid Balance section, and Medication Regimen via NephroTestHarness', () async {
+      final now = DateTime.utc(2026, 9, 9, 12, 0);
+
+      final patient = await harness.createPatient(
+        name: 'Ada Lovelace',
+        diagnosis: 'hemodialysis',
+        prescribedDryWeightKg: 55.0,
+        dailyFluidAllowanceMl: 1000,
+      );
+
+      // Prescribe medications
+      final amlodipine = await harness.createMedication(
+        patientId: patient.id,
+        name: 'Amlodipine',
+        dosage: '5mg',
+        frequency: 'Daily (Morning)',
+        isAntiHypertensive: true,
+      );
+
+      final sevelamer = await harness.createMedication(
+        patientId: patient.id,
+        name: 'Sevelamer Carbonate',
+        dosage: '800mg',
+        frequency: '3 times daily with meals',
+        isPhosphateBinder: true,
+      );
+
+      // Record administrations
+      final admin = await harness.recordMedicationAdministration(
+        patientId: patient.id,
+        medicationId: amlodipine.id,
+        administeredAt: now.subtract(const Duration(days: 1, hours: 2)),
+      );
+
+      await harness.recordMedicationAdministration(
+        patientId: patient.id,
+        medicationId: sevelamer.id,
+        administeredAt: now.subtract(const Duration(hours: 5)),
+        notes: 'Taken with lunch',
+      );
+
+      // Record Paired BP
+      await harness.recordBaselineBloodPressure(
+        patientId: patient.id,
+        medicationAdministrationId: admin.id,
+        medicationName: 'Amlodipine',
+        systolic: 155,
+        diastolic: 95,
+        pulse: 82,
+        armUsed: 'rightArm',
+        pairedAssessmentId: 'pair-ada-1',
+        recordedAt: now.subtract(const Duration(days: 1, hours: 2)),
+      );
+
+      await harness.recordFollowUpBloodPressure(
+        patientId: patient.id,
+        pairedAssessmentId: 'pair-ada-1',
+        systolic: 130,
+        diastolic: 80,
+        pulse: 75,
+        armUsed: 'rightArm',
+        recordedAt: now.subtract(const Duration(days: 1, hours: 1, minutes: 35)),
+      );
+
+      // Dual fluid balance records
+      await harness.recordFluidIntake(
+        patientId: patient.id,
+        volumeMl: 800,
+        beverageType: 'Water',
+        recordedAt: now.subtract(const Duration(days: 1)),
+      );
+
+      await harness.recordFluidOutput(
+        patientId: patient.id,
+        volumeMl: 250,
+        outputType: 'urine',
+        recordedAt: now.subtract(const Duration(days: 1)),
+      );
+
+      await harness.recordDialysisSession(
+        patientId: patient.id,
+        sessionType: 'hemodialysis',
+        startedAt: now.subtract(const Duration(days: 1, hours: 4)),
+        actualFluidRemovedMl: 1500,
+        status: 'completed',
+      );
+
+      // Test with only the three new modules enabled
+      final config = ModularReportConfig(
+        dateWindow: ReportDateWindow.last7Days,
+        enabledModules: {
+          ClinicalReportModule.pairedAntiHypertensiveBp,
+          ClinicalReportModule.dualFluidBalance,
+          ClinicalReportModule.medicationRegimenAndAdherence,
+        },
+      );
+
+      // Verify through NephroTestHarness helpers
+      final pwDoc = await harness.buildModularClinicalReportDocument(
+        patientId: patient.id,
+        config: config,
+        asOf: now,
+      );
+      expect(pwDoc, isNotNull);
+
+      final pdfBytes = await harness.generateModularClinicalReportPdf(
+        patientId: patient.id,
+        config: config,
+        asOf: now,
+      );
+      expect(pdfBytes, isNotEmpty);
+      expect(utf8.decode(pdfBytes.sublist(0, 5)), equals('%PDF-'));
+    });
   });
 }

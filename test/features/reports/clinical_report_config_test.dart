@@ -5,16 +5,19 @@ void main() {
   group('ClinicalReportConfig & Date Window Calculation Seam', () {
     final asOf = DateTime.utc(2026, 9, 9, 12, 0);
 
-    test('Default config includes all 5 clinical modules and defaults to 14 days', () {
+    test('Default config includes all 8 clinical modules and defaults to 14 days', () {
       final config = ModularReportConfig.defaultConfig();
 
       expect(config.dateWindow, equals(ReportDateWindow.last14Days));
-      expect(config.enabledModules.length, equals(5));
+      expect(config.enabledModules.length, equals(8));
       expect(config.isModuleEnabled(ClinicalReportModule.patientDemographicsAndDiagnosis), isTrue);
       expect(config.isModuleEnabled(ClinicalReportModule.weightTrends), isTrue);
       expect(config.isModuleEnabled(ClinicalReportModule.bloodPressureAndPulse), isTrue);
       expect(config.isModuleEnabled(ClinicalReportModule.fluidBalanceAndIntake), isTrue);
       expect(config.isModuleEnabled(ClinicalReportModule.accessInspectionAndCatheterHistory), isTrue);
+      expect(config.isModuleEnabled(ClinicalReportModule.pairedAntiHypertensiveBp), isTrue);
+      expect(config.isModuleEnabled(ClinicalReportModule.dualFluidBalance), isTrue);
+      expect(config.isModuleEnabled(ClinicalReportModule.medicationRegimenAndAdherence), isTrue);
     });
 
     test('Resolves 7-day, 14-day, and 30-day observation date windows accurately', () {

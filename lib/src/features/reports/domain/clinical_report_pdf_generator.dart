@@ -5,6 +5,7 @@ import 'package:pdf/widgets.dart' as pw;
 import '../../../core/database/app_database.dart';
 import '../../blood_pressure/domain/vascular_safety_rules.dart';
 import '../../catheter/domain/catheter_lifespan_rules.dart';
+import '../../fluid/domain/fluid_balance_summary.dart';
 import '../../profile/domain/clinical_condition.dart';
 import 'clinical_report_config.dart';
 import 'clinical_report_data.dart';
@@ -77,6 +78,30 @@ class ClinicalReportPdfGenerator {
             _buildSectionHeader('5. Access Inspection & Catheter Lifespan History'),
             pw.SizedBox(height: 6),
             _buildAccessAndCatheterSection(reportData),
+            pw.SizedBox(height: 14),
+          ],
+
+          // 6. Paired Anti-Hypertensive Blood Pressure Table Module
+          if (reportData.config.isModuleEnabled(ClinicalReportModule.pairedAntiHypertensiveBp)) ...[
+            _buildSectionHeader('6. Paired Anti-Hypertensive Blood Pressure Protocol'),
+            pw.SizedBox(height: 6),
+            _buildPairedBpSection(reportData),
+            pw.SizedBox(height: 14),
+          ],
+
+          // 7. Dual Fluid Balance Section Module
+          if (reportData.config.isModuleEnabled(ClinicalReportModule.dualFluidBalance)) ...[
+            _buildSectionHeader('7. Dual Fluid Balance (Native Urine vs Machine Ultrafiltration)'),
+            pw.SizedBox(height: 6),
+            _buildDualFluidBalanceSection(reportData),
+            pw.SizedBox(height: 14),
+          ],
+
+          // 8. Prescribed Medication Regimen & Adherence Summary Module
+          if (reportData.config.isModuleEnabled(ClinicalReportModule.medicationRegimenAndAdherence)) ...[
+            _buildSectionHeader('8. Prescribed Medication Regimen & Adherence Summary'),
+            pw.SizedBox(height: 6),
+            _buildMedicationRegimenSection(reportData),
             pw.SizedBox(height: 14),
           ],
         ],
@@ -539,6 +564,277 @@ class ClinicalReportPdfGenerator {
           ),
       ],
     );
+  }
+
+  // --- Clinical Section 6: Paired Anti-Hypertensive Blood Pressure ---
+
+  pw.Widget _buildPairedBpSection(ClinicalReportData reportData) {
+    final pairs = reportData.pairedBpAssessments;
+    if (pairs.isEmpty) {
+      return _buildEmptyStateBox('No paired anti-hypertensive blood pressure assessments recorded in this observation date window.');
+    }
+
+    final adminMap = {for (final a in reportData.medicationAdministrations) a.id: a};
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Container(
+          padding: const pw.EdgeInsets.all(6),
+          decoration: pw.BoxDecoration(
+            color: PdfColors.blue50,
+            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+            border: pw.Border.all(color: PdfColors.blue200),
+          ),
+          child: pw.Row(
+            children: [
+              pw.Text(
+                'Clinical Titration Protocol: ',
+                style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900),
+              ),
+              pw.Expanded(
+                child: pw.Text(
+                  'Pre-dose baseline BP vs post-dose follow-up BP (20-35 min pharmacological onset window) quantifying hemodynamic drop.',
+                  style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.blue800),
+                ),
+              ),
+            ],
+          ),
+        ),
+        pw.SizedBox(height: 6),
+        pw.TableHelper.fromTextArray(
+          border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+          headerStyle: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+          headerDecoration: const pw.BoxDecoration(color: PdfColors.blue900),
+          cellStyle: const pw.TextStyle(fontSize: 7),
+          cellAlignment: pw.Alignment.centerLeft,
+          headers: [
+            'Date / Time',
+            'Anti-Hypertensive Medication',
+            'Pre-Dose Baseline',
+            'Post-Dose Follow-Up',
+            'Elapsed',
+            'Hemodynamic Deltas',
+          ],
+          data: pairs.map((p) {
+            final admin = p.medicationAdministrationId != null ? adminMap[p.medicationAdministrationId] : null;
+            final medLabel = admin != null
+                ? '${admin.medicationName} (${admin.dosage})'
+                : (p.baseline.medicationAdministrationId != null ? 'Linked Administration' : 'Anti-Hypertensive');
+
+            final baselineStr = '${p.baseline.systolic}/${p.baseline.diastolic} mmHg (${p.baseline.pulse} bpm)';
+            final followUpStr = p.followUp != null
+                ? '${p.followUp!.systolic}/${p.followUp!.diastolic} mmHg (${p.followUp!.pulse} bpm)'
+                : 'Pending Follow-Up';
+
+            final elapsedStr = p.elapsedMinutes != null ? '${p.elapsedMinutes} min' : '-';
+
+            String deltasStr = '-';
+            if (p.systolicDelta != null && p.diastolicDelta != null) {
+              final sysSign = p.systolicDelta! > 0 ? '+' : '';
+              final diaSign = p.diastolicDelta! > 0 ? '+' : '';
+              final pulseStr = p.pulseDelta != null
+                  ? ' | Pulse: ${p.pulseDelta! > 0 ? "+" : ""}${p.pulseDelta} bpm'
+                  : '';
+              deltasStr = '$sysSign${p.systolicDelta} / $diaSign${p.diastolicDelta} mmHg$pulseStr';
+            }
+
+            return [
+              _formatDateTime(p.baseline.recordedAt),
+              medLabel,
+              baselineStr,
+              followUpStr,
+              elapsedStr,
+              deltasStr,
+            ];
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  // --- Clinical Section 7: Dual Fluid Balance ---
+
+  pw.Widget _buildDualFluidBalanceSection(ClinicalReportData reportData) {
+    final summary = reportData.dualFluidBalanceSummary;
+    if (summary == null) {
+      return _buildEmptyStateBox('No fluid logs or ultrafiltration records recorded in this observation date window.');
+    }
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        // Summary Metrics Grid
+        pw.Container(
+          padding: const pw.EdgeInsets.all(8),
+          decoration: pw.BoxDecoration(
+            color: PdfColors.blue50,
+            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+            border: pw.Border.all(color: PdfColors.blue200),
+          ),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
+                children: [
+                  _buildMetricCol('Total Fluid Intake', '${FluidBalanceSummary.formatVolume(summary.totalIntakeMl)} mL'),
+                  _buildMetricCol('Native Urine Output', '${FluidBalanceSummary.formatVolume(summary.totalUrineOutputMl)} mL'),
+                  _buildMetricCol('Machine Ultrafiltration', '${FluidBalanceSummary.formatVolume(summary.machineUltrafiltrationMl)} mL'),
+                  _buildMetricCol(
+                    'Body Fluid Retention',
+                    summary.bodyFluidRetentionText,
+                    isHighlighted: true,
+                  ),
+                  _buildMetricCol(
+                    'Net Dialytic Balance',
+                    summary.netBalanceText,
+                    isHighlighted: true,
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 6),
+              pw.Divider(color: PdfColors.blue200, thickness: 0.5),
+              pw.SizedBox(height: 4),
+              pw.Text(
+                'Clinical Summary: ${summary.plainLanguageSummary}',
+                style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900),
+              ),
+            ],
+          ),
+        ),
+        pw.SizedBox(height: 8),
+
+        // Modality Contrast Table
+        pw.Text('Dual Fluid Modality Separation Breakdown:', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold)),
+        pw.SizedBox(height: 4),
+        pw.TableHelper.fromTextArray(
+          border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+          headerStyle: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+          headerDecoration: const pw.BoxDecoration(color: PdfColors.blue900),
+          cellStyle: const pw.TextStyle(fontSize: 7),
+          cellAlignment: pw.Alignment.centerLeft,
+          headers: [
+            'Fluid Modality / Dynamic',
+            'Volume (mL)',
+            'Share of Total Output',
+            'Clinical Parameter & Source',
+          ],
+          data: [
+            [
+              'Native Residual Urine Output',
+              '${FluidBalanceSummary.formatVolume(summary.totalUrineOutputMl)} mL',
+              summary.totalOutputMl > 0
+                  ? '${((summary.totalUrineOutputMl / summary.totalOutputMl) * 100).toStringAsFixed(1)}%'
+                  : '0.0%',
+              'Natural renal excretion (${summary.urineOutputLogCount} urine logs in window)',
+            ],
+            [
+              'Machine Ultrafiltration (Dialysis)',
+              '${FluidBalanceSummary.formatVolume(summary.machineUltrafiltrationMl)} mL',
+              summary.totalOutputMl > 0
+                  ? '${((summary.machineUltrafiltrationMl / summary.totalOutputMl) * 100).toStringAsFixed(1)}%'
+                  : '0.0%',
+              'Dialytic fluid extraction (${summary.dialysisSessionCount} completed sessions)',
+            ],
+            [
+              'Body Fluid Retention (Native Balance)',
+              summary.bodyFluidRetentionText,
+              '-',
+              'Retention prior to dialytic therapy (Total Intake - Native Urine Output)',
+            ],
+            [
+              'Cumulative Net Dialytic Balance',
+              summary.netBalanceText,
+              '-',
+              'Final fluid hydration balance (Total Intake - Total Fluid Evacuated)',
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  // --- Clinical Section 8: Prescribed Medication Regimen & Adherence ---
+
+  pw.Widget _buildMedicationRegimenSection(ClinicalReportData reportData) {
+    final medications = reportData.medications;
+    final administrations = reportData.medicationAdministrations;
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text('Active Prescribed Medication Regimen:', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold)),
+        pw.SizedBox(height: 4),
+        if (medications.isEmpty)
+          _buildEmptyStateBox('No active prescribed medications recorded for this patient.')
+        else
+          pw.TableHelper.fromTextArray(
+            border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+            headerStyle: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.blue900),
+            cellStyle: const pw.TextStyle(fontSize: 7),
+            cellAlignment: pw.Alignment.centerLeft,
+            headers: ['Medication Name', 'Dosage', 'Frequency', 'Clinical Classification', 'Special Instructions'],
+            data: medications.map((m) {
+              return [
+                m.name,
+                m.dosage,
+                m.frequency,
+                _formatMedicationClassification(
+                  isPhosphateBinder: m.isPhosphateBinder,
+                  isAntiHypertensive: m.isAntiHypertensive,
+                  isRegimen: true,
+                ),
+                m.instructions?.isNotEmpty == true ? m.instructions! : 'None',
+              ];
+            }).toList(),
+          ),
+        pw.SizedBox(height: 8),
+
+        pw.Text('Recent Administration Adherence History (Observation Window):', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold)),
+        pw.SizedBox(height: 4),
+        if (administrations.isEmpty)
+          _buildEmptyStateBox('No medication administrations recorded in this observation date window.')
+        else
+          pw.TableHelper.fromTextArray(
+            border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+            headerStyle: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.blue800),
+            cellStyle: const pw.TextStyle(fontSize: 7),
+            cellAlignment: pw.Alignment.centerLeft,
+            headers: ['Administered At', 'Medication', 'Dosage', 'Classification', 'Clinical Notes / Meal Sync'],
+            data: administrations.map((a) {
+              return [
+                _formatDateTime(a.administeredAt),
+                a.medicationName,
+                a.dosage,
+                _formatMedicationClassification(
+                  isPhosphateBinder: a.isPhosphateBinder,
+                  isAntiHypertensive: a.isAntiHypertensive,
+                  isRegimen: false,
+                ),
+                a.notes?.isNotEmpty == true ? a.notes! : 'None',
+              ];
+            }).toList(),
+          ),
+      ],
+    );
+  }
+
+  static String _formatMedicationClassification({
+    required bool isPhosphateBinder,
+    required bool isAntiHypertensive,
+    bool isRegimen = false,
+  }) {
+    if (isPhosphateBinder && isAntiHypertensive) {
+      return 'Phosphate Binder & Anti-Hypertensive';
+    } else if (isPhosphateBinder) {
+      return isRegimen ? 'Phosphate Binder (Meal-Synced)' : 'Phosphate Binder';
+    } else if (isAntiHypertensive) {
+      return isRegimen ? 'Anti-Hypertensive (BP-Tracked)' : 'Anti-Hypertensive';
+    }
+    return 'Standard';
   }
 
   // --- Helper Widgets & Formatters ---

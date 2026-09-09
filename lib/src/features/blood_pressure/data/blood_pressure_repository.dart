@@ -215,31 +215,7 @@ class BloodPressureRepository {
 
   /// Groups paired baseline and follow-up blood pressure logs into [PairedBpAssessment] models.
   List<PairedBpAssessment> _groupPairedAssessments(List<BloodPressureLog> logs) {
-    final Map<String, BloodPressureLog> baselines = {};
-    final Map<String, BloodPressureLog> followUps = {};
-
-    for (final log in logs) {
-      final pairId = log.pairedAssessmentId ?? log.id;
-      if (log.pairedRole == PairedAssessmentRole.baseline) {
-        baselines[pairId] = log;
-      } else if (log.pairedRole == PairedAssessmentRole.followUp) {
-        followUps[pairId] = log;
-      }
-    }
-
-    final List<PairedBpAssessment> pairs = [];
-    for (final entry in baselines.entries) {
-      pairs.add(
-        PairedBpAssessment(
-          baseline: entry.value,
-          followUp: followUps[entry.key],
-          medicationAdministrationId: entry.value.medicationAdministrationId,
-        ),
-      );
-    }
-
-    pairs.sort((a, b) => b.baseline.recordedAt.compareTo(a.baseline.recordedAt));
-    return pairs;
+    return PairedBpAssessment.groupFromLogs(logs);
   }
 
   /// Queries all pending paired assessments (baselines that have not yet had a follow-up recorded).

@@ -40,6 +40,21 @@ enum ClinicalReportModule {
     'Access Inspection & Catheter Lifespan History',
     'Vascular access physical findings (thrill/bruit/infection) and Foley catheter 14-day cycle history.',
     Key('module_toggle_catheter'),
+  ),
+  pairedAntiHypertensiveBp(
+    'Paired Anti-Hypertensive Blood Pressure Table',
+    'Pre-dose baseline BP, post-dose follow-up BP, exact elapsed minutes, and pressure drop deltas.',
+    Key('module_toggle_paired_bp'),
+  ),
+  dualFluidBalance(
+    'Dual Fluid Balance (Native Urine vs Machine Ultrafiltration)',
+    'Separates native residual urine output from machine ultrafiltration with body retention and extraction totals.',
+    Key('module_toggle_dual_fluid'),
+  ),
+  medicationRegimenAndAdherence(
+    'Medication Regimen & Adherence Summary',
+    'Active prescribed medications, dosages, frequencies, classifications, and administration history.',
+    Key('module_toggle_medication_regimen'),
   );
 
   final String displayName;
@@ -78,7 +93,7 @@ class ModularReportConfig {
   });
 
   /// Factory constructor creating the default configuration:
-  /// 14-day observation window with all 5 clinical modules enabled.
+  /// 14-day observation window with all clinical modules enabled.
   factory ModularReportConfig.defaultConfig() {
     return const ModularReportConfig(
       dateWindow: ReportDateWindow.last14Days,
@@ -88,6 +103,9 @@ class ModularReportConfig {
         ClinicalReportModule.bloodPressureAndPulse,
         ClinicalReportModule.fluidBalanceAndIntake,
         ClinicalReportModule.accessInspectionAndCatheterHistory,
+        ClinicalReportModule.pairedAntiHypertensiveBp,
+        ClinicalReportModule.dualFluidBalance,
+        ClinicalReportModule.medicationRegimenAndAdherence,
       },
     );
   }
