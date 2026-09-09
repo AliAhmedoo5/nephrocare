@@ -157,9 +157,9 @@ class _HemodialysisCheckInScreenState extends ConsumerState<HemodialysisCheckInS
     final calculatedIdwg = _calculateIdwg(previousPostWeight);
 
     final accessType = widget.patient.vascularAccessType ?? '';
-    final isFistulaOrGraft = accessType == VascularAccessType.arteriovenousFistula.name ||
-        accessType == VascularAccessType.arteriovenousGraft.name;
-    final isCentralLine = accessType == VascularAccessType.dialysisCentralLine.name;
+    final parsedAccess = VascularAccessType.fromString(accessType);
+    final isFistulaOrGraft = parsedAccess?.isFistulaOrGraft ?? false;
+    final isCentralLine = parsedAccess?.isCentralLine ?? false;
     final warnings = _accessWarnings;
 
     return Scaffold(

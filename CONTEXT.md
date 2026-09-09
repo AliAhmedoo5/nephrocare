@@ -27,8 +27,20 @@ A critical medical constraint designating the arm bearing a vascular access as s
 _Avoid_: Arm warning, cuff lock, banned arm
 
 **Dialysis Central Line**:
-A tunneled or non-tunneled vascular catheter (Permcath or CVC) providing direct central venous access for hemodialysis, requiring frequent exit-site infection inspection.
+A central venous catheter providing direct venous access for hemodialysis, subdivided clinically into Tunneled (Permcath) and Non-Tunneled Temporary Lines.
 _Avoid_: IV line, port tube, chest wire
+
+**Tunneled Dialysis Central Line (Permcath)**:
+A long-term cuffed catheter tunneled under the skin into the internal jugular vein, typically exiting on the chest wall.
+_Avoid_: Short line, temporary port
+
+**Non-Tunneled Temporary Dialysis Line**:
+A short-term uncuffed vascular catheter (Vas-Cath) placed directly into the internal jugular vein (neck) or femoral vein (thigh/groin) for emergent or interim hemodialysis. Does not cause arm lockout for blood pressure measurements.
+_Avoid_: Permcath, permanent line, thigh needle
+
+**Unified Hemodialysis Session**:
+A consolidated clinical workflow capturing the full treatment lifecycle: pre-dialysis check-in (pre-weight, access inspection, target UF), intra-dialytic monitoring, and post-dialysis checkout (post-weight, actual fluid removed, recovery symptoms).
+_Avoid_: Split check-in, disconnected post-log
 
 **Peritoneal Dialysis Access**:
 A permanent catheter placed in the abdomen used to infuse and drain dialysate fluid for peritoneal filtration.
@@ -40,12 +52,16 @@ _Avoid_: Belly tube, PD tube, port
 The nephrologist-prescribed maximum volume of total fluid intake permitted across a 24-hour cycle.
 _Avoid_: Fluid ceiling, water limit, daily target
 
-**Fluid Balance**:
-The net difference between total fluid consumed and total fluid evacuated (urine output and ultrafiltration) over a 24-hour period.
-_Avoid_: In/out ratio, water delta
+**Native Urine Balance**:
+The net difference between total fluid consumed and bladder/catheter urine evacuated over a 24-hour cycle, reflecting native renal fluid retention prior to dialysis.
+_Avoid_: Gross in-out, mixed balance
+
+**Dialytic Fluid Balance**:
+The comprehensive 24-hour net fluid balance accounting for both native urine output and machine ultrafiltration (fluid extracted during hemodialysis or peritoneal exchange).
+_Avoid_: Total water delta, combined pull
 
 **Urine Foley Catheter**:
-An indwelling flexible tube draining urine from the bladder into a collection bag, monitored under a 14-day clinical lifespan cycle before mandatory replacement.
+An indwelling flexible tube draining urine from the bladder into a collection bag, monitored under a configurable clinical lifespan cycle (14-day latex, 30/90-day silicone, or custom) with scheduled bag emptying and replacement reminders.
 _Avoid_: Bladder hose, pee tube, catheter pipe
 
 **CAUTI Risk Window**:
@@ -85,3 +101,15 @@ _Avoid_: Data dump, backup file, JSON export
 **Caregiver Mirror**:
 A designated patient profile replica maintained on a caregiver or family member's device for monitoring and clinical consultation.
 _Avoid_: Secondary account, sub-user, observer
+
+**Paired Anti-Hypertensive BP Assessment**:
+A synchronized clinical protocol capturing blood pressure immediately prior to taking an anti-hypertensive medication and re-measuring at a scheduled interval (20–35 minutes) post-administration to quantify pharmacological hemodynamic response.
+_Avoid_: Random recheck, double BP, second read
+
+**Medication Regimen**:
+The patient's active prescribed drug schedule detailing medication names, dosages, administration frequencies, and contextual clinical constraints (e.g., synchronized with meals for phosphate binders, pre/post BP tracking for anti-hypertensives).
+_Avoid_: Pill list, drug cabinet, meds tracker
+
+**Caregiver & Clinical Terms Guide**:
+An integrated in-app plain-language medical dictionary and contextual educational tool designed for family members and attendants to interpret clinical indicators, vital signs, and safety protocols without jargon.
+_Avoid_: FAQ, help manual, medical wiki

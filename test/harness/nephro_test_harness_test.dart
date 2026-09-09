@@ -5,6 +5,7 @@ import 'package:nephrocare/src/features/blood_pressure/domain/vascular_safety_ru
 import 'package:nephrocare/src/features/catheter/domain/catheter_lifespan_rules.dart';
 import 'package:nephrocare/src/features/dialysis/domain/hemodialysis_calculation_rules.dart';
 import 'package:nephrocare/src/features/fluid/domain/fluid_balance_summary.dart';
+import 'package:nephrocare/src/features/profile/domain/clinical_condition.dart';
 import 'package:nephrocare/src/features/reports/domain/clinical_report_config.dart';
 
 void main() {
@@ -956,6 +957,197 @@ void main() {
       expect(pdfContent, isNot(contains('Pre/Post/Prescribed')));
       expect(pdfContent, isNot(contains('[(Intake)]')));
       expect(pdfContent, isNot(contains('[(Lifespan)]')));
+    });
+
+    test('Vascular Access Catalog & Selective Fistula Arm Lockout end-to-end clinical workflow', () async {
+      final now = DateTime.now().toUtc();
+
+      // 1. Non-Tunneled Temporary Line at Neck (Internal Jugular)
+      final neckPatient = await harness.createPatient(
+        name: 'Vas-Cath Neck Patient',
+        diagnosis: 'hemodialysis',
+        prescribedDryWeightKg: 72.0,
+        vascularAccessType: VascularAccessType.nonTunneledTemporaryDialysisLine.name,
+        fistulaArmLocation: AccessLocation.neck.name,
+      );
+
+      // Verify patient domain properties
+      expect(neckPatient.hasArmAccess, isFalse);
+      expect(VascularAccessType.fromString(neckPatient.vascularAccessType), equals(VascularAccessType.nonTunneledTemporaryDialysisLine));
+      expect(AccessLocation.fromString(neckPatient.fistulaArmLocation), equals(AccessLocation.neck));
+      expect(VascularSafetyRules.hasArmAccess(neckPatient), isFalse);
+      expect(VascularSafetyRules.isArmSafe(patient: neckPatient, arm: 'leftArm'), isTrue);
+      expect(VascularSafetyRules.isArmSafe(patient: neckPatient, arm: 'rightArm'), isTrue);
+
+      // Verify blood pressure can be recorded safely on both arms without lockout
+      final bpNeckLeft = await harness.recordBloodPressure(
+        patientId: neckPatient.id,
+        systolic: 120,
+        diastolic: 80,
+        pulse: 72,
+        armUsed: 'leftArm',
+        recordedAt: now.subtract(const Duration(hours: 3)),
+      );
+      expect(bpNeckLeft.armUsed, equals('leftArm'));
+      expect(bpNeckLeft.isSafeArm, isTrue);
+
+      final bpNeckRight = await harness.recordBloodPressure(
+        patientId: neckPatient.id,
+        systolic: 122,
+        diastolic: 82,
+        pulse: 74,
+        armUsed: 'rightArm',
+        recordedAt: now.subtract(const Duration(hours: 2)),
+      );
+      expect(bpNeckRight.armUsed, equals('rightArm'));
+      expect(bpNeckRight.isSafeArm, isTrue);
+
+      // Verify access inspection logging for Non-Tunneled Line with exit-site infection checks
+      final neckCheckIn = await harness.recordPreDialysisCheckIn(
+        patientId: neckPatient.id,
+        preWeightKg: 74.0,
+        volumeAllowanceMl: 500,
+        rednessPresent: true,
+        swellingPresent: true,
+        dischargePresent: false,
+        painPresent: true,
+        inspectionNotes: 'Neck insertion site dressing changed',
+        startedAt: now.subtract(const Duration(hours: 1)),
+      );
+      expect(neckCheckIn.id, isNotEmpty);
+
+      final neckInspections = await harness.getAccessInspections(neckPatient.id);
+      expect(neckInspections.length, equals(1));
+      expect(neckInspections.first.accessType, equals(VascularAccessType.nonTunneledTemporaryDialysisLine.name));
+      expect(neckInspections.first.anatomicalLocation, equals(AccessLocation.neck.name));
+      expect(neckInspections.first.rednessPresent, isTrue);
+      expect(neckInspections.first.swellingPresent, isTrue);
+      expect(neckInspections.first.dischargePresent, isFalse);
+      expect(neckInspections.first.painPresent, isTrue);
+
+      final neckWarnings = HemodialysisCalculationRules.getAccessSafetyWarnings(
+        accessType: neckPatient.vascularAccessType!,
+        rednessPresent: true,
+        swellingPresent: true,
+        dischargePresent: false,
+        painPresent: true,
+      );
+      expect(neckWarnings.length, equals(3));
+      expect(neckWarnings.any((w) => w.contains('redness')), isTrue);
+      expect(neckWarnings.any((w) => w.contains('swelling')), isTrue);
+      expect(neckWarnings.any((w) => w.contains('pain')), isTrue);
+      // Ensure central lines do not raise thrill/bruit warnings
+      expect(neckWarnings.any((w) => w.contains('thrill')), isFalse);
+      expect(neckWarnings.any((w) => w.contains('bruit')), isFalse);
+
+      // 2. Non-Tunneled Temporary Line at Thigh/Groin (Femoral)
+      final femoralPatient = await harness.createPatient(
+        name: 'Femoral Line Patient',
+        diagnosis: 'hemodialysis',
+        prescribedDryWeightKg: 68.0,
+        vascularAccessType: VascularAccessType.nonTunneledTemporaryDialysisLine.name,
+        fistulaArmLocation: AccessLocation.thighGroin.name,
+      );
+
+      expect(femoralPatient.hasArmAccess, isFalse);
+      expect(AccessLocation.fromString(femoralPatient.fistulaArmLocation), equals(AccessLocation.thighGroin));
+      expect(VascularSafetyRules.isArmSafe(patient: femoralPatient, arm: 'leftArm'), isTrue);
+      expect(VascularSafetyRules.isArmSafe(patient: femoralPatient, arm: 'rightArm'), isTrue);
+
+      final bpFemoralLeft = await harness.recordBloodPressure(
+        patientId: femoralPatient.id,
+        systolic: 125,
+        diastolic: 84,
+        pulse: 75,
+        armUsed: 'leftArm',
+        recordedAt: now,
+      );
+      expect(bpFemoralLeft.isSafeArm, isTrue);
+
+      final femoralCheckIn = await harness.recordPreDialysisCheckIn(
+        patientId: femoralPatient.id,
+        preWeightKg: 70.0,
+        rednessPresent: false,
+        swellingPresent: false,
+        dischargePresent: false,
+        painPresent: false,
+        startedAt: now,
+      );
+      expect(femoralCheckIn.id, isNotEmpty);
+
+      final femoralInspections = await harness.getAccessInspections(femoralPatient.id);
+      expect(femoralInspections.first.anatomicalLocation, equals(AccessLocation.thighGroin.name));
+      final femoralWarnings = HemodialysisCalculationRules.getAccessSafetyWarnings(
+        accessType: femoralPatient.vascularAccessType!,
+        rednessPresent: false,
+        swellingPresent: false,
+        dischargePresent: false,
+        painPresent: false,
+      );
+      expect(femoralWarnings, isEmpty);
+
+      // 3. Tunneled Dialysis Central Line (Permcath) at Chest
+      final chestPatient = await harness.createPatient(
+        name: 'Permcath Chest Patient',
+        diagnosis: 'hemodialysis',
+        prescribedDryWeightKg: 65.0,
+        vascularAccessType: VascularAccessType.tunneledDialysisCentralLine.name,
+        fistulaArmLocation: AccessLocation.chest.name,
+      );
+
+      expect(chestPatient.hasArmAccess, isFalse);
+      expect(VascularSafetyRules.isArmSafe(patient: chestPatient, arm: 'leftArm'), isTrue);
+      expect(VascularSafetyRules.isArmSafe(patient: chestPatient, arm: 'rightArm'), isTrue);
+
+      final chestWarnings = HemodialysisCalculationRules.getAccessSafetyWarnings(
+        accessType: chestPatient.vascularAccessType!,
+        rednessPresent: false,
+        swellingPresent: false,
+        dischargePresent: true,
+        painPresent: false,
+      );
+      expect(chestWarnings.length, equals(1));
+      expect(chestWarnings.first, contains('discharge'));
+
+      // 4. Fistula on Left Arm: Strictly enforces hard lockout ONLY when access is located on an arm
+      final fistulaPatient = await harness.createPatient(
+        name: 'AV Fistula Left Arm Patient',
+        diagnosis: 'hemodialysis',
+        prescribedDryWeightKg: 60.0,
+        vascularAccessType: VascularAccessType.arteriovenousFistula.name,
+        fistulaArmLocation: AccessLocation.leftArm.name,
+      );
+
+      expect(fistulaPatient.hasArmAccess, isTrue);
+      expect(VascularSafetyRules.hasArmAccess(fistulaPatient), isTrue);
+      expect(VascularSafetyRules.isArmSafe(patient: fistulaPatient, arm: 'leftArm'), isFalse);
+      expect(VascularSafetyRules.isArmSafe(patient: fistulaPatient, arm: 'rightArm'), isTrue);
+      expect(VascularSafetyRules.getProhibitedArm(fistulaPatient), equals('leftArm'));
+
+      // Prohibited arm throws FistulaArmSafetyException
+      expect(
+        () => harness.recordBloodPressure(
+          patientId: fistulaPatient.id,
+          systolic: 130,
+          diastolic: 85,
+          pulse: 78,
+          armUsed: 'leftArm',
+          recordedAt: now,
+        ),
+        throwsA(isA<FistulaArmSafetyException>()),
+      );
+
+      // Safe arm (rightArm) succeeds
+      final bpFistulaRight = await harness.recordBloodPressure(
+        patientId: fistulaPatient.id,
+        systolic: 128,
+        diastolic: 82,
+        pulse: 76,
+        armUsed: 'rightArm',
+        recordedAt: now,
+      );
+      expect(bpFistulaRight.armUsed, equals('rightArm'));
+      expect(bpFistulaRight.isSafeArm, isTrue);
     });
   });
 }

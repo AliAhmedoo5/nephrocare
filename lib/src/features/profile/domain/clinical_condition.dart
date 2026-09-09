@@ -56,8 +56,12 @@ enum VascularAccessType {
     displayName: 'Arteriovenous Graft',
     isArmAccess: true,
   ),
-  dialysisCentralLine(
-    displayName: 'Dialysis Central Line (Permcath/CVC)',
+  tunneledDialysisCentralLine(
+    displayName: 'Tunneled Dialysis Central Line (Permcath)',
+    isArmAccess: false,
+  ),
+  nonTunneledTemporaryDialysisLine(
+    displayName: 'Non-Tunneled Temporary Dialysis Line (Vas-Cath)',
     isArmAccess: false,
   ),
   peritonealDialysisAccess(
@@ -77,8 +81,66 @@ enum VascularAccessType {
   final String displayName;
   final bool isArmAccess;
 
+  /// Whether this access is a central line catheter requiring exit-site inspection.
+  bool get isCentralLine =>
+      this == VascularAccessType.tunneledDialysisCentralLine ||
+      this == VascularAccessType.nonTunneledTemporaryDialysisLine;
+
+  /// Whether this access is an arteriovenous fistula or graft.
+  bool get isFistulaOrGraft =>
+      this == VascularAccessType.arteriovenousFistula ||
+      this == VascularAccessType.arteriovenousGraft;
+
+  /// List of anatomically compatible locations for this access type.
+  List<AccessLocation> get compatibleLocations {
+    switch (this) {
+      case VascularAccessType.arteriovenousFistula:
+      case VascularAccessType.arteriovenousGraft:
+        return const [AccessLocation.leftArm, AccessLocation.rightArm];
+      case VascularAccessType.tunneledDialysisCentralLine:
+        return const [AccessLocation.chest, AccessLocation.neck];
+      case VascularAccessType.nonTunneledTemporaryDialysisLine:
+        return const [AccessLocation.neck, AccessLocation.thighGroin];
+      case VascularAccessType.peritonealDialysisAccess:
+        return const [AccessLocation.abdomen];
+      case VascularAccessType.none:
+        return const [AccessLocation.none];
+    }
+  }
+
+  /// Default anatomical location for this access type upon selection.
+  AccessLocation get defaultLocation {
+    switch (this) {
+      case VascularAccessType.arteriovenousFistula:
+      case VascularAccessType.arteriovenousGraft:
+        return AccessLocation.leftArm;
+      case VascularAccessType.tunneledDialysisCentralLine:
+        return AccessLocation.chest;
+      case VascularAccessType.nonTunneledTemporaryDialysisLine:
+        return AccessLocation.neck;
+      case VascularAccessType.peritonealDialysisAccess:
+        return AccessLocation.abdomen;
+      case VascularAccessType.none:
+        return AccessLocation.none;
+    }
+  }
+
+  /// Backward-compatible alias for [tunneledDialysisCentralLine].
+  static const VascularAccessType dialysisCentralLine = VascularAccessType.tunneledDialysisCentralLine;
+
   static VascularAccessType? fromString(String? name) {
     if (name == null) return null;
+    if (name == 'dialysisCentralLine') {
+      return VascularAccessType.tunneledDialysisCentralLine;
+    }
+    if (name == 'nonTunneledTemporaryLine' ||
+        name == 'nonTunneledTemporaryDialysisLine' ||
+        name == 'vasCath') {
+      return VascularAccessType.nonTunneledTemporaryDialysisLine;
+    }
+    if (name == 'tunneledDialysisCentralLine' || name == 'permcath') {
+      return VascularAccessType.tunneledDialysisCentralLine;
+    }
     for (final access in VascularAccessType.values) {
       if (access.name == name) return access;
     }
@@ -91,6 +153,8 @@ enum AccessLocation {
   leftArm(displayName: 'Left Arm', isArm: true),
   rightArm(displayName: 'Right Arm', isArm: true),
   chest(displayName: 'Chest', isArm: false),
+  neck(displayName: 'Neck (Internal Jugular)', isArm: false),
+  thighGroin(displayName: 'Thigh / Groin (Femoral)', isArm: false),
   abdomen(displayName: 'Abdomen', isArm: false),
   none(displayName: 'None', isArm: false);
 
@@ -102,8 +166,23 @@ enum AccessLocation {
   final String displayName;
   final bool isArm;
 
+  /// Aliases for clinical anatomical terminology
+  static const AccessLocation neckInternalJugular = AccessLocation.neck;
+  static const AccessLocation femoral = AccessLocation.thighGroin;
+
   static AccessLocation? fromString(String? name) {
     if (name == null) return null;
+    if (name == 'neck' || name == 'neckInternalJugular') {
+      return AccessLocation.neck;
+    }
+    if (name == 'thighGroin' ||
+        name == 'femoral' ||
+        name == 'thigh' ||
+        name == 'groin' ||
+        name == 'thigh/groin' ||
+        name == 'thighGroinFemoral') {
+      return AccessLocation.thighGroin;
+    }
     for (final location in AccessLocation.values) {
       if (location.name == name) return location;
     }

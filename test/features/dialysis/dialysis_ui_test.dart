@@ -146,6 +146,59 @@ void main() {
     );
 
     testWidgets(
+      'Hemodialysis check-in renders exit-site checks for Non-Tunneled Temporary Dialysis Line (Vas-Cath)',
+      (WidgetTester tester) async {
+        final patient = await harness.createPatient(
+          name: 'Montgomery Scott',
+          diagnosis: ClinicalCondition.hemodialysis.name,
+          prescribedDryWeightKg: 75.0,
+          vascularAccessType: VascularAccessType.nonTunneledTemporaryDialysisLine.name,
+          fistulaArmLocation: AccessLocation.neck.name,
+        );
+
+        await tester.pumpWidget(
+          createTestApp(
+            home: HemodialysisCheckInScreen(patient: patient),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Verify exit-site inspection checklist for Non-Tunneled temporary line
+        expect(find.byKey(const Key('redness_checkbox')), findsOneWidget);
+        expect(find.byKey(const Key('swelling_checkbox')), findsOneWidget);
+        expect(find.byKey(const Key('discharge_checkbox')), findsOneWidget);
+        expect(find.byKey(const Key('pain_checkbox')), findsOneWidget);
+
+        // Fill pre-weight and toggle discharge & pain
+        await tester.enterText(find.byKey(const Key('pre_weight_input')), '78.0');
+        await tester.ensureVisible(find.byKey(const Key('discharge_checkbox')));
+        await tester.tap(find.byKey(const Key('discharge_checkbox')));
+        await tester.ensureVisible(find.byKey(const Key('pain_checkbox')));
+        await tester.tap(find.byKey(const Key('pain_checkbox')));
+        await tester.pumpAndSettle();
+
+        // Safety warning alert banner surfaces
+        expect(find.byKey(const Key('access_safety_warning_banner')), findsOneWidget);
+        expect(find.textContaining('Exit-site discharge detected'), findsOneWidget);
+        expect(find.textContaining('Exit-site pain reported'), findsOneWidget);
+
+        // Submit check-in
+        final confirmBtn = find.byKey(const Key('confirm_check_in_button'));
+        await tester.ensureVisible(confirmBtn);
+        await tester.tap(confirmBtn);
+        await tester.pumpAndSettle();
+
+        // Verify inspection persisted
+        final inspections = await harness.database.select(harness.database.accessInspections).get();
+        expect(inspections.length, equals(1));
+        expect(inspections.first.accessType, equals(VascularAccessType.nonTunneledTemporaryDialysisLine.name));
+        expect(inspections.first.anatomicalLocation, equals('neck'));
+        expect(inspections.first.dischargePresent, isTrue);
+        expect(inspections.first.painPresent, isTrue);
+      },
+    );
+
+    testWidgets(
       'Post-dialysis logging captures post-weight, computes dry weight difference, records symptoms, and persists',
       (WidgetTester tester) async {
         final patient = await harness.createPatient(

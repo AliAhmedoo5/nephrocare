@@ -18,31 +18,154 @@ void main() {
       await harness.dispose();
     });
 
-    test('Identifies safe arm and prohibited arm correctly per ADR-0003', () async {
-      final fistulaPatient = await harness.createPatient(
+    test('Identifies safe arm and prohibited arm correctly per ADR-0003 and ADR-0005', () async {
+      final leftFistulaPatient = await harness.createPatient(
         name: 'Jane Doe',
         diagnosis: ClinicalCondition.hemodialysis.name,
         vascularAccessType: VascularAccessType.arteriovenousFistula.name,
         fistulaArmLocation: AccessLocation.leftArm.name,
       );
 
-      expect(VascularSafetyRules.hasArmAccess(fistulaPatient), isTrue);
-      expect(VascularSafetyRules.getProhibitedArm(fistulaPatient), equals('leftArm'));
-      expect(VascularSafetyRules.getSafeArm(fistulaPatient), equals('rightArm'));
-      expect(VascularSafetyRules.isArmSafe(patient: fistulaPatient, arm: 'leftArm'), isFalse);
-      expect(VascularSafetyRules.isArmSafe(patient: fistulaPatient, arm: 'rightArm'), isTrue);
+      expect(VascularSafetyRules.hasArmAccess(leftFistulaPatient), isTrue);
+      expect(VascularSafetyRules.getProhibitedArm(leftFistulaPatient), equals('leftArm'));
+      expect(VascularSafetyRules.getSafeArm(leftFistulaPatient), equals('rightArm'));
+      expect(VascularSafetyRules.isArmSafe(patient: leftFistulaPatient, arm: 'leftArm'), isFalse);
+      expect(VascularSafetyRules.isArmSafe(patient: leftFistulaPatient, arm: 'rightArm'), isTrue);
 
-      final nonArmPatient = await harness.createPatient(
+      final rightGraftPatient = await harness.createPatient(
+        name: 'Robert Paulson',
+        diagnosis: ClinicalCondition.hemodialysis.name,
+        vascularAccessType: VascularAccessType.arteriovenousGraft.name,
+        fistulaArmLocation: AccessLocation.rightArm.name,
+      );
+
+      expect(VascularSafetyRules.hasArmAccess(rightGraftPatient), isTrue);
+      expect(VascularSafetyRules.getProhibitedArm(rightGraftPatient), equals('rightArm'));
+      expect(VascularSafetyRules.getSafeArm(rightGraftPatient), equals('leftArm'));
+      expect(VascularSafetyRules.isArmSafe(patient: rightGraftPatient, arm: 'rightArm'), isFalse);
+      expect(VascularSafetyRules.isArmSafe(patient: rightGraftPatient, arm: 'leftArm'), isTrue);
+
+      // Non-Tunneled Temporary Dialysis Line in the Neck (Internal Jugular)
+      final neckVasCathPatient = await harness.createPatient(
+        name: 'Alice Neck',
+        diagnosis: ClinicalCondition.hemodialysis.name,
+        vascularAccessType: VascularAccessType.nonTunneledTemporaryDialysisLine.name,
+        fistulaArmLocation: AccessLocation.neck.name,
+      );
+
+      expect(VascularSafetyRules.hasArmAccess(neckVasCathPatient), isFalse);
+      expect(VascularSafetyRules.getProhibitedArm(neckVasCathPatient), isNull);
+      expect(VascularSafetyRules.getSafeArm(neckVasCathPatient), isNull);
+      expect(VascularSafetyRules.isArmSafe(patient: neckVasCathPatient, arm: 'leftArm'), isTrue);
+      expect(VascularSafetyRules.isArmSafe(patient: neckVasCathPatient, arm: 'rightArm'), isTrue);
+
+      // Non-Tunneled Temporary Dialysis Line in the Thigh / Groin (Femoral)
+      final femoralVasCathPatient = await harness.createPatient(
+        name: 'Bob Femoral',
+        diagnosis: ClinicalCondition.hemodialysis.name,
+        vascularAccessType: VascularAccessType.nonTunneledTemporaryDialysisLine.name,
+        fistulaArmLocation: AccessLocation.thighGroin.name,
+      );
+
+      expect(VascularSafetyRules.hasArmAccess(femoralVasCathPatient), isFalse);
+      expect(VascularSafetyRules.getProhibitedArm(femoralVasCathPatient), isNull);
+      expect(VascularSafetyRules.getSafeArm(femoralVasCathPatient), isNull);
+      expect(VascularSafetyRules.isArmSafe(patient: femoralVasCathPatient, arm: 'leftArm'), isTrue);
+      expect(VascularSafetyRules.isArmSafe(patient: femoralVasCathPatient, arm: 'rightArm'), isTrue);
+
+      // Tunneled Central Line in the Chest (Permcath)
+      final chestPermcathPatient = await harness.createPatient(
         name: 'John Smith',
         diagnosis: ClinicalCondition.hemodialysis.name,
-        vascularAccessType: VascularAccessType.dialysisCentralLine.name,
+        vascularAccessType: VascularAccessType.tunneledDialysisCentralLine.name,
         fistulaArmLocation: AccessLocation.chest.name,
       );
 
-      expect(VascularSafetyRules.hasArmAccess(nonArmPatient), isFalse);
-      expect(VascularSafetyRules.getProhibitedArm(nonArmPatient), isNull);
-      expect(VascularSafetyRules.isArmSafe(patient: nonArmPatient, arm: 'leftArm'), isTrue);
-      expect(VascularSafetyRules.isArmSafe(patient: nonArmPatient, arm: 'rightArm'), isTrue);
+      expect(VascularSafetyRules.hasArmAccess(chestPermcathPatient), isFalse);
+      expect(VascularSafetyRules.getProhibitedArm(chestPermcathPatient), isNull);
+      expect(VascularSafetyRules.getSafeArm(chestPermcathPatient), isNull);
+      expect(VascularSafetyRules.isArmSafe(patient: chestPermcathPatient, arm: 'leftArm'), isTrue);
+      expect(VascularSafetyRules.isArmSafe(patient: chestPermcathPatient, arm: 'rightArm'), isTrue);
+
+      // Peritoneal Dialysis in Abdomen
+      final pdPatient = await harness.createPatient(
+        name: 'Carla Belly',
+        diagnosis: ClinicalCondition.peritonealDialysis.name,
+        vascularAccessType: VascularAccessType.peritonealDialysisAccess.name,
+        fistulaArmLocation: AccessLocation.abdomen.name,
+      );
+
+      expect(VascularSafetyRules.hasArmAccess(pdPatient), isFalse);
+      expect(VascularSafetyRules.getProhibitedArm(pdPatient), isNull);
+      expect(VascularSafetyRules.isArmSafe(patient: pdPatient, arm: 'leftArm'), isTrue);
+      expect(VascularSafetyRules.isArmSafe(patient: pdPatient, arm: 'rightArm'), isTrue);
+
+      // None / Not Applicable
+      final nonePatient = await harness.createPatient(
+        name: 'David None',
+        diagnosis: ClinicalCondition.nonDialysisCkd.name,
+        vascularAccessType: VascularAccessType.none.name,
+        fistulaArmLocation: AccessLocation.none.name,
+      );
+
+      expect(VascularSafetyRules.hasArmAccess(nonePatient), isFalse);
+      expect(VascularSafetyRules.getProhibitedArm(nonePatient), isNull);
+      expect(VascularSafetyRules.isArmSafe(patient: nonePatient, arm: 'leftArm'), isTrue);
+      expect(VascularSafetyRules.isArmSafe(patient: nonePatient, arm: 'rightArm'), isTrue);
+    });
+
+    test('Allows blood pressure recording on both arms for patients with neck, chest, thigh/groin, and abdominal accesses', () async {
+      final neckPatient = await harness.createPatient(
+        name: 'Alice Neck',
+        diagnosis: ClinicalCondition.hemodialysis.name,
+        vascularAccessType: VascularAccessType.nonTunneledTemporaryDialysisLine.name,
+        fistulaArmLocation: AccessLocation.neck.name,
+      );
+
+      final leftBp = await repository.recordBloodPressure(
+        patientId: neckPatient.id,
+        systolic: 120,
+        diastolic: 80,
+        pulse: 72,
+        armUsed: 'leftArm',
+      );
+      expect(leftBp.armUsed, equals('leftArm'));
+      expect(leftBp.isSafeArm, isTrue);
+
+      final rightBp = await repository.recordBloodPressure(
+        patientId: neckPatient.id,
+        systolic: 122,
+        diastolic: 81,
+        pulse: 74,
+        armUsed: 'rightArm',
+      );
+      expect(rightBp.armUsed, equals('rightArm'));
+      expect(rightBp.isSafeArm, isTrue);
+
+      final thighPatient = await harness.createPatient(
+        name: 'Bob Thigh',
+        diagnosis: ClinicalCondition.hemodialysis.name,
+        vascularAccessType: VascularAccessType.nonTunneledTemporaryDialysisLine.name,
+        fistulaArmLocation: AccessLocation.thighGroin.name,
+      );
+
+      final thighLeftBp = await repository.recordBloodPressure(
+        patientId: thighPatient.id,
+        systolic: 118,
+        diastolic: 78,
+        pulse: 70,
+        armUsed: 'leftArm',
+      );
+      expect(thighLeftBp.armUsed, equals('leftArm'));
+
+      final thighRightBp = await repository.recordBloodPressure(
+        patientId: thighPatient.id,
+        systolic: 119,
+        diastolic: 79,
+        pulse: 71,
+        armUsed: 'rightArm',
+      );
+      expect(thighRightBp.armUsed, equals('rightArm'));
     });
 
     test('Throws FistulaArmSafetyException when attempting to record BP on fistula-bearing arm', () async {

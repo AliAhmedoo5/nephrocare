@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../blood_pressure/domain/vascular_safety_rules.dart';
 import '../../blood_pressure/presentation/blood_pressure_entry_screen.dart';
 import '../../catheter/data/catheter_repository.dart';
 import '../../catheter/presentation/catheter_lifespan_screen.dart';
@@ -69,7 +70,7 @@ class DashboardScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final condition = ClinicalCondition.fromString(patient.diagnosis) ?? ClinicalCondition.hemodialysis;
     final accessLocation = AccessLocation.fromString(patient.fistulaArmLocation);
-    final isFistulaArmActive = accessLocation != null && accessLocation.isArm;
+    final isFistulaArmActive = patient.hasArmAccess;
     final fluidBalanceAsync = ref.watch(fluidBalance24hStreamProvider(patient.id));
     final fluidSummary = fluidBalanceAsync.valueOrNull;
     final catheterSummaryAsync = ref.watch(catheterLifespanSummaryStreamProvider(patient.id));
@@ -264,7 +265,7 @@ class DashboardScreen extends ConsumerWidget {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '${accessLocation.displayName} bearing vascular access. Prohibited for blood pressure cuffs, blood draws, and IV placement.',
+                              '${accessLocation?.displayName ?? 'Designated arm'} bearing vascular access. Prohibited for blood pressure cuffs, blood draws, and IV placement.',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: theme.colorScheme.onErrorContainer,
                                 height: 1.3,

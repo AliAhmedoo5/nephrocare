@@ -100,10 +100,39 @@ void main() {
         expect(fistulaWarning, contains('Absent thrill detected in vascular fistula/graft.'));
       });
 
-      test('validates access inspection safety for Dialysis Central Line (redness, swelling, discharge)', () {
-        // Central line with redness and discharge -> warnings flagged
+      test('validates access inspection safety for Tunneled Dialysis Central Line (Permcath)', () {
+        final permcathWarnings = HemodialysisCalculationRules.getAccessSafetyWarnings(
+          accessType: VascularAccessType.tunneledDialysisCentralLine.name,
+          rednessPresent: true,
+          swellingPresent: true,
+          dischargePresent: true,
+          painPresent: true,
+        );
+
+        expect(permcathWarnings.length, equals(4));
+        expect(permcathWarnings, contains('Exit-site redness detected.'));
+        expect(permcathWarnings, contains('Exit-site swelling detected.'));
+        expect(permcathWarnings, contains('Exit-site discharge detected.'));
+        expect(permcathWarnings, contains('Exit-site pain reported.'));
+      });
+
+      test('validates access inspection safety for Non-Tunneled Temporary Dialysis Line (Vas-Cath)', () {
+        final vasCathWarnings = HemodialysisCalculationRules.getAccessSafetyWarnings(
+          accessType: VascularAccessType.nonTunneledTemporaryDialysisLine.name,
+          rednessPresent: true,
+          swellingPresent: false,
+          dischargePresent: true,
+          painPresent: false,
+        );
+
+        expect(vasCathWarnings.length, equals(2));
+        expect(vasCathWarnings, contains('Exit-site redness detected.'));
+        expect(vasCathWarnings, contains('Exit-site discharge detected.'));
+      });
+
+      test('validates access inspection safety for legacy Dialysis Central Line alias', () {
         final lineWarnings = HemodialysisCalculationRules.getAccessSafetyWarnings(
-          accessType: VascularAccessType.dialysisCentralLine.name,
+          accessType: 'dialysisCentralLine',
           rednessPresent: true,
           swellingPresent: true,
           dischargePresent: true,

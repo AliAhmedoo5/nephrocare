@@ -16,17 +16,16 @@ class VascularSafetyRules {
   /// Checks whether the patient has an active vascular access located on an arm.
   static bool hasArmAccess(Patient patient) {
     final accessType = VascularAccessType.fromString(patient.vascularAccessType);
-    final location = AccessLocation.fromString(patient.fistulaArmLocation);
+    if (accessType == VascularAccessType.none) {
+      return false;
+    }
 
+    final location = AccessLocation.fromString(patient.fistulaArmLocation);
     if (location == null || !location.isArm) {
       return false;
     }
 
-    if (accessType == null) {
-      return location.isArm;
-    }
-
-    return accessType.isArmAccess;
+    return true;
   }
 
   /// Returns the arm location string ('leftArm' or 'rightArm') prohibited from blood pressure measurement,

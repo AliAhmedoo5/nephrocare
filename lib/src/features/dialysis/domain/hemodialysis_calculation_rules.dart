@@ -76,9 +76,9 @@ class HemodialysisCalculationRules {
     bool? painPresent,
   }) {
     final warnings = <String>[];
-    final isFistulaOrGraft = accessType == VascularAccessType.arteriovenousFistula.name ||
-        accessType == VascularAccessType.arteriovenousGraft.name;
-    final isCentralLine = accessType == VascularAccessType.dialysisCentralLine.name;
+    final parsed = VascularAccessType.fromString(accessType);
+    final isFistulaOrGraft = parsed?.isFistulaOrGraft ?? false;
+    final isCentralLine = parsed?.isCentralLine ?? false;
 
     if (isFistulaOrGraft) {
       if (thrillPresent == false) {

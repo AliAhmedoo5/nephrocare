@@ -114,10 +114,10 @@ class _AccessInspectionHistoryScreenState extends ConsumerState<AccessInspection
     final accessType = widget.patient.vascularAccessType ?? '';
     final accessLocation = AccessLocation.fromString(widget.patient.fistulaArmLocation);
 
-    final isFistulaOrGraft = accessType == VascularAccessType.arteriovenousFistula.name ||
-        accessType == VascularAccessType.arteriovenousGraft.name;
-    final isCentralLine = accessType == VascularAccessType.dialysisCentralLine.name;
-    final isPdAccess = accessType == VascularAccessType.peritonealDialysisAccess.name;
+    final parsedAccess = VascularAccessType.fromString(accessType);
+    final isFistulaOrGraft = parsedAccess?.isFistulaOrGraft ?? false;
+    final isCentralLine = parsedAccess?.isCentralLine ?? false;
+    final isPdAccess = parsedAccess == VascularAccessType.peritonealDialysisAccess;
     final warnings = _accessWarnings;
 
     return Scaffold(
@@ -167,7 +167,7 @@ class _AccessInspectionHistoryScreenState extends ConsumerState<AccessInspection
                               isFistulaOrGraft
                                   ? 'Arteriovenous Fistula / Graft'
                                   : isCentralLine
-                                      ? 'Dialysis Central Line (Permcath)'
+                                      ? (parsedAccess?.displayName ?? 'Dialysis Central Line')
                                       : isPdAccess
                                           ? 'Peritoneal Dialysis Access'
                                           : 'None / General',

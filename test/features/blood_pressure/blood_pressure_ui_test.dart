@@ -113,7 +113,7 @@ void main() {
         final patient = await harness.createPatient(
           name: 'James Kirk',
           diagnosis: ClinicalCondition.hemodialysis.name,
-          vascularAccessType: VascularAccessType.dialysisCentralLine.name,
+          vascularAccessType: VascularAccessType.tunneledDialysisCentralLine.name,
           fistulaArmLocation: AccessLocation.chest.name,
         );
 
@@ -150,6 +150,115 @@ void main() {
         final logs = await harness.database.select(harness.database.bloodPressureLogs).get();
         expect(logs.length, equals(1));
         expect(logs.first.armUsed, equals('leftArm'));
+      },
+    );
+
+    testWidgets(
+      'Blood pressure entry allows unrestricted arm selection for Non-Tunneled Temporary Line in Neck and Thigh/Groin',
+      (WidgetTester tester) async {
+        // 1. Patient with Non-Tunneled line in the Neck (Internal Jugular)
+        final neckPatient = await harness.createPatient(
+          name: 'Uhura Neck',
+          diagnosis: ClinicalCondition.hemodialysis.name,
+          vascularAccessType: VascularAccessType.nonTunneledTemporaryDialysisLine.name,
+          fistulaArmLocation: AccessLocation.neck.name,
+        );
+
+        await tester.pumpWidget(
+          createTestApp(
+            home: BloodPressureEntryScreen(patient: neckPatient),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Banner must NOT appear
+        expect(find.byKey(const Key('fistula_arm_safety_banner')), findsNothing);
+
+        // Both Left Arm and Right Arm are clickable
+        expect(tester.widget<ElevatedButton>(find.byKey(const Key('arm_left_button'))).onPressed, isNotNull);
+        expect(tester.widget<ElevatedButton>(find.byKey(const Key('arm_right_button'))).onPressed, isNotNull);
+
+        // Select Right Arm and submit
+        await tester.tap(find.byKey(const Key('arm_right_button')));
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.byKey(const Key('systolic_input')), '118');
+        await tester.enterText(find.byKey(const Key('diastolic_input')), '76');
+        await tester.enterText(find.byKey(const Key('pulse_input')), '65');
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('save_bp_button')));
+        await tester.pumpAndSettle();
+
+        // 2. Patient with Non-Tunneled line in Thigh/Groin (Femoral)
+        final femoralPatient = await harness.createPatient(
+          name: 'Sulu Femoral',
+          diagnosis: ClinicalCondition.hemodialysis.name,
+          vascularAccessType: VascularAccessType.nonTunneledTemporaryDialysisLine.name,
+          fistulaArmLocation: AccessLocation.thighGroin.name,
+        );
+
+        await tester.pumpWidget(
+          createTestApp(
+            home: BloodPressureEntryScreen(patient: femoralPatient),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Banner must NOT appear
+        expect(find.byKey(const Key('fistula_arm_safety_banner')), findsNothing);
+
+        // Both arms clickable
+        expect(tester.widget<ElevatedButton>(find.byKey(const Key('arm_left_button'))).onPressed, isNotNull);
+        expect(tester.widget<ElevatedButton>(find.byKey(const Key('arm_right_button'))).onPressed, isNotNull);
+
+        // Select Left Arm and submit
+        await tester.tap(find.byKey(const Key('arm_left_button')));
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.byKey(const Key('systolic_input')), '124');
+        await tester.enterText(find.byKey(const Key('diastolic_input')), '82');
+        await tester.enterText(find.byKey(const Key('pulse_input')), '70');
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('save_bp_button')));
+        await tester.pumpAndSettle();
+
+        final logs = await harness.database.select(harness.database.bloodPressureLogs).get();
+        expect(logs.length, equals(2));
+        expect(logs[0].patientId, equals(neckPatient.id));
+        expect(logs[0].armUsed, equals('rightArm'));
+        expect(logs[1].patientId, equals(femoralPatient.id));
+        expect(logs[1].armUsed, equals('leftArm'));
+      },
+    );
+
+    testWidgets(
+      'Blood pressure entry enforces hard lockout on right arm when right arm fistula is active',
+      (WidgetTester tester) async {
+        final patient = await harness.createPatient(
+          name: 'Right Arm Patient',
+          diagnosis: ClinicalCondition.hemodialysis.name,
+          vascularAccessType: VascularAccessType.arteriovenousFistula.name,
+          fistulaArmLocation: AccessLocation.rightArm.name,
+        );
+
+        await tester.pumpWidget(
+          createTestApp(
+            home: BloodPressureEntryScreen(patient: patient),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Banner is displayed showing Right Arm
+        expect(find.byKey(const Key('fistula_arm_safety_banner')), findsOneWidget);
+        expect(find.textContaining('Right Arm'), findsWidgets);
+
+        // Right arm is locked out (onPressed is null), Left arm is enabled
+        final leftArmButton = tester.widget<ElevatedButton>(find.byKey(const Key('arm_left_button')));
+        final rightArmButton = tester.widget<ElevatedButton>(find.byKey(const Key('arm_right_button')));
+        expect(rightArmButton.onPressed, isNull);
+        expect(leftArmButton.onPressed, isNotNull);
       },
     );
 

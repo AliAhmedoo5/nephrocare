@@ -281,5 +281,84 @@ void main() {
       expect(find.text('Fluid Intake'), findsOneWidget);
       expect(find.text('Check-in'), findsNothing); // Hemodialysis check-in gone!
     });
+
+    testWidgets('Profile setup and editing permit selection of Non-Tunneled Temporary Dialysis Lines with neck and thigh/groin locations',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(createTestApp());
+      await tester.pumpAndSettle();
+
+      // 1. Initial Setup: Create patient with Non-Tunneled Temporary Dialysis Line in the Neck
+      await tester.enterText(find.byKey(const Key('patient_name_input')), 'Montgomery Scott');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('diagnosis_dropdown')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Hemodialysis').last);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byKey(const Key('dry_weight_input')), '75.0');
+      await tester.enterText(find.byKey(const Key('fluid_allowance_input')), '1000');
+      await tester.pumpAndSettle();
+
+      // Select Vascular Access Type: Non-Tunneled Temporary Dialysis Line (Vas-Cath)
+      await tester.ensureVisible(find.byKey(const Key('access_type_dropdown')));
+      await tester.tap(find.byKey(const Key('access_type_dropdown')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Non-Tunneled Temporary Dialysis Line (Vas-Cath)').last);
+      await tester.pumpAndSettle();
+
+      // Select Access Location: Neck (Internal Jugular)
+      await tester.ensureVisible(find.byKey(const Key('access_location_dropdown')));
+      await tester.tap(find.byKey(const Key('access_location_dropdown')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Neck (Internal Jugular)').last);
+      await tester.pumpAndSettle();
+
+      // Submit profile
+      final saveButton = find.byKey(const Key('save_profile_button'));
+      await tester.ensureVisible(saveButton);
+      await tester.tap(saveButton);
+      await tester.pumpAndSettle();
+      // Dismiss SnackBar so it does not obscure buttons in subsequent screens
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+
+      // Verify persisted in Drift SQLite
+      final repository = PatientRepository(harness.database);
+      final activePatient = await repository.getActivePatient();
+      expect(activePatient, isNotNull);
+      expect(activePatient!.name, equals('Montgomery Scott'));
+      expect(activePatient.vascularAccessType, equals(VascularAccessType.nonTunneledTemporaryDialysisLine.name));
+      expect(activePatient.fistulaArmLocation, equals(AccessLocation.neck.name));
+
+      // Verify Dashboard does NOT display Fistula Arm Safety Flag banner for neck access
+      expect(find.text('Montgomery Scott'), findsOneWidget);
+      expect(find.textContaining('Fistula Arm Safety Flag Active'), findsNothing);
+
+      // 2. Edit Profile: Change location to Thigh / Groin (Femoral)
+      await tester.tap(find.byTooltip('Edit Patient Profile'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Edit Patient Profile'), findsOneWidget);
+
+      await tester.ensureVisible(find.byKey(const Key('access_location_dropdown')));
+      await tester.tap(find.byKey(const Key('access_location_dropdown')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Thigh / Groin (Femoral)').last);
+      await tester.pumpAndSettle();
+
+      final updateButton = find.byKey(const Key('save_profile_button'));
+      await tester.ensureVisible(updateButton);
+      await tester.tap(updateButton);
+      await tester.pumpAndSettle();
+
+      // Verify updated in Drift SQLite
+      final updatedPatient = await repository.getActivePatient();
+      expect(updatedPatient, isNotNull);
+      expect(updatedPatient!.fistulaArmLocation, equals(AccessLocation.thighGroin.name));
+
+      // Verify Dashboard does NOT display Fistula Arm Safety Flag banner for thigh/groin access
+      expect(find.textContaining('Fistula Arm Safety Flag Active'), findsNothing);
+    });
   });
 }

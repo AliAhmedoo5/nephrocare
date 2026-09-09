@@ -3,6 +3,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../../core/database/app_database.dart';
+import '../../blood_pressure/domain/vascular_safety_rules.dart';
 import '../../catheter/domain/catheter_lifespan_rules.dart';
 import '../../profile/domain/clinical_condition.dart';
 import 'clinical_report_config.dart';
@@ -221,7 +222,7 @@ class ClinicalReportPdfGenerator {
   pw.Widget _buildDemographicsSection(Patient patient) {
     final condition = ClinicalCondition.fromString(patient.diagnosis);
     final accessLocation = AccessLocation.fromString(patient.fistulaArmLocation);
-    final isFistulaArmActive = accessLocation != null && accessLocation.isArm;
+    final isFistulaArmActive = patient.hasArmAccess;
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -278,7 +279,7 @@ class ClinicalReportPdfGenerator {
                 ),
                 pw.Expanded(
                   child: pw.Text(
-                    '${accessLocation.displayName} bearing vascular access. Prohibited for blood pressure cuffs, blood draws, and IV placement.',
+                    '${accessLocation?.displayName ?? 'Designated arm'} bearing vascular access. Prohibited for blood pressure cuffs, blood draws, and IV placement.',
                     style: const pw.TextStyle(fontSize: 8, color: PdfColors.red800),
                   ),
                 ),

@@ -31,3 +31,5 @@ Thumbs.db
 
 # Tooling
 .playwright-mcp/
+.scratch/
+reservations.txt

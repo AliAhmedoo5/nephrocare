@@ -262,6 +262,7 @@ class _PatientProfileSetupScreenState extends ConsumerState<PatientProfileSetupS
                 DropdownButtonFormField<ClinicalCondition>(
                   key: const Key('diagnosis_dropdown'),
                   initialValue: _selectedCondition,
+                  isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Primary Clinical Condition *',
                     prefixIcon: Icon(Icons.health_and_safety_outlined),
@@ -271,7 +272,11 @@ class _PatientProfileSetupScreenState extends ConsumerState<PatientProfileSetupS
                   items: ClinicalCondition.values.map((condition) {
                     return DropdownMenuItem<ClinicalCondition>(
                       value: condition,
-                      child: Text(condition.displayName, style: theme.textTheme.bodyLarge),
+                      child: Text(
+                        condition.displayName,
+                        style: theme.textTheme.bodyLarge,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     );
                   }).toList(),
                   onChanged: (condition) {
@@ -365,6 +370,7 @@ class _PatientProfileSetupScreenState extends ConsumerState<PatientProfileSetupS
                 DropdownButtonFormField<VascularAccessType>(
                   key: const Key('access_type_dropdown'),
                   initialValue: _selectedAccessType,
+                  isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Vascular Access Type',
                     prefixIcon: Icon(Icons.biotech_outlined),
@@ -374,15 +380,19 @@ class _PatientProfileSetupScreenState extends ConsumerState<PatientProfileSetupS
                   items: VascularAccessType.values.map((access) {
                     return DropdownMenuItem<VascularAccessType>(
                       value: access,
-                      child: Text(access.displayName, style: theme.textTheme.bodyLarge),
+                      child: Text(
+                        access.displayName,
+                        style: theme.textTheme.bodyLarge,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     );
                   }).toList(),
                   onChanged: (access) {
                     if (access != null) {
                       setState(() {
                         _selectedAccessType = access;
-                        if (!access.isArmAccess && _selectedAccessLocation.isArm) {
-                          _selectedAccessLocation = AccessLocation.chest;
+                        if (!access.compatibleLocations.contains(_selectedAccessLocation)) {
+                          _selectedAccessLocation = access.defaultLocation;
                         }
                       });
                     }
@@ -394,17 +404,24 @@ class _PatientProfileSetupScreenState extends ConsumerState<PatientProfileSetupS
                 DropdownButtonFormField<AccessLocation>(
                   key: const Key('access_location_dropdown'),
                   initialValue: _selectedAccessLocation,
-                  decoration: const InputDecoration(
+                  isExpanded: true,
+                  decoration: InputDecoration(
                     labelText: 'Access Anatomical Location',
-                    prefixIcon: Icon(Icons.place_outlined),
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                    helperText: 'Arm access automatically enforces Fistula Arm Safety Flag',
+                    prefixIcon: const Icon(Icons.place_outlined),
+                    border: const OutlineInputBorder(),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    helperText: _selectedAccessLocation.isArm
+                        ? 'Arm access automatically enforces Fistula Arm Safety Flag'
+                        : 'Non-arm access: blood pressure permitted on both arms without lockout',
                   ),
                   items: AccessLocation.values.map((location) {
                     return DropdownMenuItem<AccessLocation>(
                       value: location,
-                      child: Text(location.displayName, style: theme.textTheme.bodyLarge),
+                      child: Text(
+                        location.displayName,
+                        style: theme.textTheme.bodyLarge,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     );
                   }).toList(),
                   onChanged: (location) {
