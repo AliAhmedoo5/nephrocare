@@ -149,7 +149,7 @@ void main() {
       expect(find.textContaining('4 active medications & binders'), findsOneWidget);
     });
 
-    testWidgets('Dynamically updates Catheter & Access Monitor and Foley Catheter Lifespan with catheter risk state', (tester) async {
+    testWidgets('Dynamically updates Foley Catheter Lifespan with CAUTI risk state while preserving HD vascular access surveillance', (tester) async {
       final now = DateTime.now().toUtc();
       final catheterSummary = CatheterLifespanSummary(
         insertionDate: now.subtract(const Duration(days: 32)),
@@ -165,7 +165,7 @@ void main() {
         totalLifespanDays: 30,
       );
 
-      // 1. Foley Catheter Lifespan in Urological / Catheter
+      // 1. Foley Catheter Lifespan in Urological / Catheter receives CAUTI risk subtitle
       await tester.pumpWidget(
         buildTestGrid(
           conditionName: ClinicalCondition.urologicalCatheter.name,
@@ -177,7 +177,7 @@ void main() {
       expect(find.text('Foley Catheter Lifespan'), findsOneWidget);
       expect(find.textContaining('Day 33 of 30 • CAUTI Risk Window Active'), findsOneWidget);
 
-      // 2. Catheter & Access Monitor in Hemodialysis
+      // 2. Catheter & Access Monitor in Hemodialysis preserves vascular access surveillance subtitle
       await tester.pumpWidget(
         buildTestGrid(
           conditionName: ClinicalCondition.hemodialysis.name,
@@ -187,7 +187,30 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Catheter & Access Monitor'), findsOneWidget);
-      expect(find.textContaining('Day 33 of 30 • CAUTI Risk Window Active'), findsOneWidget);
+      expect(find.text('Vascular Access Thrill, Bruit & Line Surveillance'), findsOneWidget);
+      expect(find.textContaining('CAUTI'), findsNothing);
+    });
+
+    testWidgets('Dynamically injects intake progression into Non-Dialysis CKD Fluid Hub card without dialysis removal text', (tester) async {
+      final summary = FluidBalanceSummary(
+        totalIntakeMl: 1200,
+        dailyFluidAllowanceMl: 1500,
+        intakePercentageOfAllowance: 80.0,
+        totalUrineOutputMl: 800,
+        machineUltrafiltrationMl: 0,
+      );
+
+      await tester.pumpWidget(
+        buildTestGrid(
+          conditionName: ClinicalCondition.nonDialysisCkd.name,
+          fluidSummary: summary,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Fluid Hub'), findsOneWidget);
+      expect(find.textContaining('1200 / 1500 mL (80.0%)'), findsOneWidget);
+      expect(find.textContaining('Dialysis Removal'), findsNothing);
     });
 
     testWidgets('Dynamically updates Unified Dialysis Session subtitle when session is actively in progress', (tester) async {

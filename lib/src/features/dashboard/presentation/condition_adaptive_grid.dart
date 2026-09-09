@@ -47,9 +47,9 @@ class ConditionAdaptiveGrid extends StatelessWidget {
             final card = cards[index];
             var effectiveCard = card;
 
-            // 1. Fluid balance progression dynamic subtitle
+            // 1. Fluid balance progression dynamic subtitle tailored per condition
             if (fluidSummary != null) {
-              if (card.id.contains('fluid_hub') || card.title == 'Fluid Hub') {
+              if (card.id == 'hd_fluid_hub' || (card.title == 'Fluid Hub' && conditionName == 'hemodialysis')) {
                 effectiveCard = ClinicalActionCard(
                   id: card.id,
                   title: card.title,
@@ -59,42 +59,60 @@ class ConditionAdaptiveGrid extends StatelessWidget {
                       'Fluid Hub: 24-hour intake ${fluidSummary!.totalIntakeMl} mL, urine output ${fluidSummary!.totalUrineOutputMl} mL, dialysis removal ${fluidSummary!.machineUltrafiltrationMl} mL, net balance ${fluidSummary!.dialyticFluidBalanceMl >= 0 ? "+" : ""}${fluidSummary!.dialyticFluidBalanceMl} mL',
                   accentColor: card.accentColor,
                 );
-              } else if (card.id == 'hd_fluid_intake' || card.id == 'ckd_fluid_allowance' || card.id == 'uro_fluid_intake') {
+              } else if (card.id == 'ckd_fluid_hub') {
+                final ckdSubtitle = fluidSummary!.dailyFluidAllowanceMl != null
+                    ? '${fluidSummary!.formattedIntakeProgression} • Net: ${fluidSummary!.nativeUrineBalanceMl >= 0 ? '+' : ''}${fluidSummary!.nativeUrineBalanceMl} mL'
+                    : 'Intake: ${fluidSummary!.totalIntakeMl} mL • Urine: ${fluidSummary!.totalUrineOutputMl} mL';
+                effectiveCard = ClinicalActionCard(
+                  id: card.id,
+                  title: card.title,
+                  subtitle: ckdSubtitle,
+                  icon: card.icon,
+                  semanticLabel: 'Fluid Hub: $ckdSubtitle',
+                  accentColor: card.accentColor,
+                );
+              } else if (card.id == 'uro_fluid_hub') {
+                final uroSubtitle = fluidSummary!.dailyFluidAllowanceMl != null
+                    ? '${fluidSummary!.formattedIntakeProgression} • Urine: ${fluidSummary!.totalUrineOutputMl} mL'
+                    : 'Intake: ${fluidSummary!.totalIntakeMl} mL • Output: ${fluidSummary!.totalUrineOutputMl} mL';
+                effectiveCard = ClinicalActionCard(
+                  id: card.id,
+                  title: card.title,
+                  subtitle: uroSubtitle,
+                  icon: card.icon,
+                  semanticLabel: 'Fluid Hub: $uroSubtitle',
+                  accentColor: card.accentColor,
+                );
+              } else if (card.id == 'pd_fluid_hub') {
+                final pdSubtitle = fluidSummary!.dailyFluidAllowanceMl != null
+                    ? '${fluidSummary!.formattedIntakeProgression} • ${fluidSummary!.formattedNetBalance24h}'
+                    : fluidSummary!.formattedNetBalance24h;
+                effectiveCard = ClinicalActionCard(
+                  id: card.id,
+                  title: card.title,
+                  subtitle: pdSubtitle,
+                  icon: card.icon,
+                  semanticLabel: 'Fluid Hub: $pdSubtitle',
+                  accentColor: card.accentColor,
+                );
+              } else if (card.id.contains('fluid_hub') || card.title == 'Fluid Hub') {
                 effectiveCard = ClinicalActionCard(
                   id: card.id,
                   title: card.title,
                   subtitle: fluidSummary!.formattedIntakeProgression,
                   icon: card.icon,
-                  semanticLabel: card.semanticLabel,
-                  accentColor: card.accentColor,
-                );
-              } else if (card.id == 'hd_fluid_output' || card.id == 'uro_urine_evacuation') {
-                effectiveCard = ClinicalActionCard(
-                  id: card.id,
-                  title: card.title,
-                  subtitle: fluidSummary!.formattedOutputWithNet,
-                  icon: card.icon,
-                  semanticLabel: card.semanticLabel,
-                  accentColor: card.accentColor,
-                );
-              } else if (card.id == 'pd_fluid_balance') {
-                effectiveCard = ClinicalActionCard(
-                  id: card.id,
-                  title: card.title,
-                  subtitle: fluidSummary!.formattedNetBalance24h,
-                  icon: card.icon,
-                  semanticLabel: card.semanticLabel,
+                  semanticLabel: 'Fluid Hub: ${fluidSummary!.formattedIntakeProgression}',
                   accentColor: card.accentColor,
                 );
               }
             }
 
             // 2. Catheter risk state dynamic subtitle
+            // Strictly scoped to urinary Foley catheter lifespans (14-day CAUTI cycle),
+            // NOT vascular hemodialysis access (which monitors thrill, bruit & lines).
             if (catheterSummary != null) {
               if (card.id == 'uro_catheter_lifespan' ||
-                  card.title == 'Foley Catheter Lifespan' ||
-                  card.id == 'hd_catheter_access' ||
-                  card.title == 'Catheter & Access Monitor') {
+                  card.title == 'Foley Catheter Lifespan') {
                 effectiveCard = ClinicalActionCard(
                   id: card.id,
                   title: card.title,
@@ -160,17 +178,22 @@ class ConditionAdaptiveGrid extends StatelessWidget {
 class _ClinicalActionGridCard extends StatelessWidget {
   final ClinicalActionCard card;
   final ThemeData theme;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _ClinicalActionGridCard({
     required this.card,
     required this.theme,
-    required this.onTap,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = theme.colorScheme.outline;
+    final borderColor = card.accentColor ?? theme.colorScheme.outline;
+    final borderWidth = card.accentColor != null ? 2.0 : 1.5;
+    final iconBgColor = card.accentColor != null
+        ? card.accentColor!.withValues(alpha: 0.15)
+        : theme.colorScheme.primaryContainer;
+    final iconColor = card.accentColor ?? theme.colorScheme.primary;
 
     return Semantics(
       label: card.semanticLabel,
@@ -187,7 +210,7 @@ class _ClinicalActionGridCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: borderColor,
-                width: 1.5,
+                width: borderWidth,
               ),
               boxShadow: [
                 BoxShadow(
@@ -212,12 +235,12 @@ class _ClinicalActionGridCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(10.0),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.primaryContainer,
+                        color: iconBgColor,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
                         card.icon,
-                        color: theme.colorScheme.primary,
+                        color: iconColor,
                         size: 28,
                       ),
                     ),
