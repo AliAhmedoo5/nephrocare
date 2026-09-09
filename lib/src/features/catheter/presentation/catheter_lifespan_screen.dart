@@ -25,6 +25,9 @@ class CatheterLifespanScreen extends ConsumerStatefulWidget {
 class _CatheterLifespanScreenState extends ConsumerState<CatheterLifespanScreen> {
   Future<void> _showCatheterEventDialog({required bool isReplacement}) async {
     DateTime selectedDate = DateTime.now();
+    CatheterMaterial selectedMaterial = CatheterMaterial.latex14Day;
+    int? selectedIntervalHours = 6;
+    final customDaysController = TextEditingController(text: '14');
     final notesController = TextEditingController();
 
     final confirmed = await showDialog<bool>(
@@ -48,11 +51,83 @@ class _CatheterLifespanScreenState extends ConsumerState<CatheterLifespanScreen>
                   children: [
                     Text(
                       isReplacement
-                          ? 'Retires existing active catheter and starts a fresh 14-day monitoring cycle.'
-                          : 'Records insertion of indwelling Urine Foley Catheter and starts 14-day cycle.',
+                          ? 'Retires existing active catheter and starts a fresh monitoring cycle.'
+                          : 'Records insertion of indwelling Urine Foley Catheter and starts lifespan tracking.',
                       style: theme.textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 16),
+                    // 1. Material Dropdown
+                    DropdownButtonFormField<CatheterMaterial>(
+                      key: const Key('catheter_material_dropdown'),
+                      initialValue: selectedMaterial,
+                      decoration: InputDecoration(
+                        labelText: 'Catheter Material & Lifespan',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        prefixIcon: const Icon(Icons.science_outlined),
+                      ),
+                      items: CatheterMaterial.values.map((material) {
+                        return DropdownMenuItem<CatheterMaterial>(
+                          value: material,
+                          child: Text(material.displayName),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() {
+                            selectedMaterial = val;
+                          });
+                        }
+                      },
+                    ),
+                    if (selectedMaterial == CatheterMaterial.custom) ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                        key: const Key('custom_lifespan_days_input'),
+                        controller: customDaysController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'Custom Lifespan (Days)',
+                          hintText: 'e.g. 21',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    // 2. Collection Bag Emptying Interval
+                    DropdownButtonFormField<int?>(
+                      key: const Key('bag_emptying_interval_dropdown'),
+                      initialValue: selectedIntervalHours,
+                      decoration: InputDecoration(
+                        labelText: 'Collection Bag Reminder Interval',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        prefixIcon: const Icon(Icons.notifications_active_outlined),
+                      ),
+                      items: const [
+                        DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text('None / Off'),
+                        ),
+                        DropdownMenuItem<int?>(
+                          value: 4,
+                          child: Text('Every 4 Hours'),
+                        ),
+                        DropdownMenuItem<int?>(
+                          value: 6,
+                          child: Text('Every 6 Hours'),
+                        ),
+                        DropdownMenuItem<int?>(
+                          value: 8,
+                          child: Text('Every 8 Hours'),
+                        ),
+                      ],
+                      onChanged: (val) {
+                        setDialogState(() {
+                          selectedIntervalHours = val;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    // 3. Insertion / Replacement Date Picker
                     ListTile(
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -81,7 +156,7 @@ class _CatheterLifespanScreenState extends ConsumerState<CatheterLifespanScreen>
                         }
                       },
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
                     TextField(
                       key: const Key('catheter_notes_input'),
                       controller: notesController,
@@ -115,17 +190,26 @@ class _CatheterLifespanScreenState extends ConsumerState<CatheterLifespanScreen>
     if (confirmed == true && mounted) {
       final repo = ref.read(catheterRepositoryProvider);
       final notes = notesController.text.trim().isEmpty ? null : notesController.text.trim();
+      final customDays = selectedMaterial == CatheterMaterial.custom
+          ? int.tryParse(customDaysController.text.trim()) ?? 14
+          : null;
 
       if (isReplacement) {
         await repo.recordCatheterReplacement(
           patientId: widget.patient.id,
           replacementDate: selectedDate,
+          material: selectedMaterial,
+          customLifespanDays: customDays,
+          bagEmptyingIntervalHours: selectedIntervalHours,
           notes: notes,
         );
       } else {
         await repo.recordCatheterInsertion(
           patientId: widget.patient.id,
           insertionDate: selectedDate,
+          material: selectedMaterial,
+          customLifespanDays: customDays,
+          bagEmptyingIntervalHours: selectedIntervalHours,
           notes: notes,
         );
       }
@@ -134,12 +218,233 @@ class _CatheterLifespanScreenState extends ConsumerState<CatheterLifespanScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(isReplacement
-                ? 'Catheter replacement recorded. 14-day cycle reset.'
-                : 'Catheter insertion recorded. 14-day monitoring active.'),
+                ? 'Catheter replacement recorded. Lifespan cycle reset.'
+                : 'Catheter insertion recorded. Lifespan monitoring active.'),
             backgroundColor: Theme.of(context).colorScheme.primary,
             behavior: SnackBarBehavior.floating,
           ),
         );
+      }
+    }
+  }
+
+  Future<void> _showOneTapBagEmptiedDialog() async {
+    int selectedVolume = 400;
+    int selectedGrade = 1;
+    final volumeController = TextEditingController(text: '400');
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final theme = Theme.of(context);
+
+            return AlertDialog(
+              key: const Key('bag_emptied_dialog'),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.opacity_rounded,
+                      color: theme.colorScheme.primary,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      '1-Tap Bag Emptied',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Document evacuated volume and Hematuria Grade in one unified motion.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Evacuation Volume (mL)',
+                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [200, 400, 600, 800, 1000].map((vol) {
+                        final isSelected = selectedVolume == vol;
+                        return ChoiceChip(
+                          key: Key('volume_chip_$vol'),
+                          label: Text('$vol mL'),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            if (selected) {
+                              setDialogState(() {
+                                selectedVolume = vol;
+                                volumeController.text = vol.toString();
+                              });
+                            }
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      key: const Key('evacuated_volume_input'),
+                      controller: volumeController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Volume (mL)',
+                        suffixText: 'mL',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onChanged: (val) {
+                        final parsed = int.tryParse(val);
+                        if (parsed != null && parsed > 0) {
+                          setDialogState(() {
+                            selectedVolume = parsed;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Hematuria Grade (1 to 4)',
+                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Column(
+                      children: [1, 2, 3, 4].map((g) {
+                        final info = HematuriaGradeInfo.fromGrade(g);
+                        final isSelected = selectedGrade == g;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 6.0),
+                          child: InkWell(
+                            key: Key('hematuria_chip_$g'),
+                            onTap: () {
+                              setDialogState(() {
+                                selectedGrade = g;
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? info.color.withValues(alpha: 0.15)
+                                    : theme.colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: isSelected ? info.color : theme.colorScheme.outlineVariant,
+                                  width: isSelected ? 2 : 1,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 16,
+                                    height: 16,
+                                    decoration: BoxDecoration(
+                                      color: info.color,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          info.title,
+                                          style: theme.textTheme.bodySmall?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: isSelected
+                                                ? theme.colorScheme.onSurface
+                                                : theme.colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                        Text(
+                                          info.description,
+                                          style: theme.textTheme.bodySmall?.copyWith(
+                                            fontSize: 10,
+                                            color: theme.colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (isSelected)
+                                    Icon(Icons.check_circle_rounded, color: info.color, size: 18),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton.icon(
+                  key: const Key('confirm_bag_emptied_button'),
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  icon: const Icon(Icons.check_rounded),
+                  label: const Text('Confirm Bag Emptied'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed == true && mounted) {
+      final repo = ref.read(catheterRepositoryProvider);
+      final finalVol = int.tryParse(volumeController.text.trim()) ?? selectedVolume;
+      try {
+        await repo.recordBagEmptied(
+          patientId: widget.patient.id,
+          volumeMl: finalVol,
+          hematuriaGrade: selectedGrade,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Bag emptied recorded: $finalVol mL (Grade $selectedGrade). Schedule updated.'),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error recording bag emptied: $e'),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        }
       }
     }
   }
@@ -184,6 +489,10 @@ class _CatheterLifespanScreenState extends ConsumerState<CatheterLifespanScreen>
                   final summary = CatheterLifespanRules.evaluateLifespan(
                     insertionDate: activeCatheter.insertionDate,
                     replacementDueDate: activeCatheter.replacementDueDate,
+                    material: CatheterMaterial.fromString(activeCatheter.material),
+                    customLifespanDays: activeCatheter.lifespanDays,
+                    bagEmptyingIntervalHours: activeCatheter.bagEmptyingIntervalHours,
+                    lastBagEmptiedAt: activeCatheter.lastBagEmptiedAt,
                   );
 
                   return Column(
@@ -193,6 +502,12 @@ class _CatheterLifespanScreenState extends ConsumerState<CatheterLifespanScreen>
                         activeCatheter: activeCatheter,
                         summary: summary,
                         onLogReplacement: () => _showCatheterEventDialog(isReplacement: true),
+                        onOneTapBagEmptied: _showOneTapBagEmptiedDialog,
+                      ),
+                      const SizedBox(height: 16),
+                      _BagEmptyingStatusCard(
+                        summary: summary,
+                        onOneTapBagEmptied: _showOneTapBagEmptiedDialog,
                       ),
                       if (summary.isCautiRiskActive) ...[
                         const SizedBox(height: 16),
@@ -480,16 +795,18 @@ class _NoActiveCatheterCard extends StatelessWidget {
   }
 }
 
-/// Active catheter card showing 14-day progress gauge and state transitions.
+/// Active catheter card showing progress gauge, material, and state transitions.
 class _ActiveCatheterCard extends StatelessWidget {
   final CatheterEvent activeCatheter;
   final CatheterLifespanSummary summary;
   final VoidCallback onLogReplacement;
+  final VoidCallback onOneTapBagEmptied;
 
   const _ActiveCatheterCard({
     required this.activeCatheter,
     required this.summary,
     required this.onLogReplacement,
+    required this.onOneTapBagEmptied,
   });
 
   @override
@@ -501,7 +818,7 @@ class _ActiveCatheterCard extends StatelessWidget {
     final dueDateStr =
         '${activeCatheter.replacementDueDate.year}-${activeCatheter.replacementDueDate.month.toString().padLeft(2, '0')}-${activeCatheter.replacementDueDate.day.toString().padLeft(2, '0')}';
 
-    final progressRatio = (summary.dayOfCycle / CatheterLifespanRules.lifespanDays).clamp(0.0, 1.0);
+    final progressRatio = (summary.dayOfCycle / summary.totalLifespanDays).clamp(0.0, 1.0);
 
     return Card(
       elevation: 0,
@@ -545,14 +862,14 @@ class _ActiveCatheterCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Day ${summary.dayOfCycle} of 14',
+                          'Day ${summary.dayOfCycle} of ${summary.totalLifespanDays}',
                           style: theme.textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: summary.statusColor,
                           ),
                         ),
                         Text(
-                          'Indwelling Urine Foley Catheter',
+                          'Indwelling Foley Catheter • ${summary.material.displayName}',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -621,30 +938,206 @@ class _ActiveCatheterCard extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+            _CatheterMetric(
+              label: 'Catheter Material & Lifespan',
+              value: '${summary.material.displayName} (${summary.totalLifespanDays} Days)',
+              icon: Icons.science_rounded,
+            ),
 
             const SizedBox(height: 18),
 
-            // Log Replacement Button
-            SizedBox(
-              height: 48,
-              child: ElevatedButton.icon(
-                key: const Key('log_catheter_replacement_button'),
-                onPressed: onLogReplacement,
-                icon: const Icon(Icons.swap_horiz_rounded),
-                label: const Text(
-                  'Log Catheter Replacement',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
+            // Action Buttons
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      key: const Key('one_tap_bag_emptied_button'),
+                      onPressed: onOneTapBagEmptied,
+                      icon: const Icon(Icons.opacity_rounded),
+                      label: const Text(
+                        '1-Tap Bag Emptied',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.colorScheme.secondary,
+                        foregroundColor: theme.colorScheme.onSecondary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: theme.colorScheme.onPrimary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      key: const Key('log_catheter_replacement_button'),
+                      onPressed: onLogReplacement,
+                      icon: const Icon(Icons.swap_horiz_rounded),
+                      label: const Text(
+                        'Log Replacement',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Card displaying Collection Bag Emptying schedule and status.
+class _BagEmptyingStatusCard extends StatelessWidget {
+  final CatheterLifespanSummary summary;
+  final VoidCallback onOneTapBagEmptied;
+
+  const _BagEmptyingStatusCard({
+    required this.summary,
+    required this.onOneTapBagEmptied,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final intervalHours = summary.bagEmptyingIntervalHours;
+
+    final intervalStr = intervalHours != null ? 'Every $intervalHours hours' : 'Manual / On Demand';
+    String dueStatusStr;
+    Color statusColor;
+
+    if (intervalHours == null) {
+      dueStatusStr = 'No automated interval scheduled.';
+      statusColor = theme.colorScheme.onSurfaceVariant;
+    } else if (summary.isBagEmptyingDue) {
+      dueStatusStr = 'Bag Emptying Due Now!';
+      statusColor = theme.colorScheme.error;
+    } else {
+      final hours = (summary.minutesUntilNextBagEmptying ?? 0) ~/ 60;
+      final mins = (summary.minutesUntilNextBagEmptying ?? 0) % 60;
+      dueStatusStr = 'Next emptying in ${hours}h ${mins}m';
+      statusColor = theme.colorScheme.primary;
+    }
+
+    String lastEmptiedStr = 'None recorded yet';
+    if (summary.lastBagEmptiedAt != null) {
+      final dt = summary.lastBagEmptiedAt!.toLocal();
+      lastEmptiedStr = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    }
+
+    return Card(
+      key: const Key('bag_emptying_status_card'),
+      elevation: 0,
+      color: theme.colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: summary.isBagEmptyingDue ? theme.colorScheme.error : theme.colorScheme.outlineVariant,
+          width: summary.isBagEmptyingDue ? 1.8 : 1.0,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: summary.isBagEmptyingDue
+                        ? theme.colorScheme.errorContainer
+                        : theme.colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.notifications_active_rounded,
+                    color: summary.isBagEmptyingDue
+                        ? theme.colorScheme.onErrorContainer
+                        : theme.colorScheme.secondary,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Collection Bag Reminders',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        intervalStr,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Chip(
+                  label: Text(
+                    summary.isBagEmptyingDue ? 'DUE NOW' : 'SCHEDULED',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: summary.isBagEmptyingDue
+                          ? theme.colorScheme.onErrorContainer
+                          : theme.colorScheme.primary,
+                    ),
+                  ),
+                  backgroundColor: summary.isBagEmptyingDue
+                      ? theme.colorScheme.errorContainer
+                      : theme.colorScheme.primaryContainer,
+                  padding: EdgeInsets.zero,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      dueStatusStr,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: statusColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Last: $lastEmptiedStr',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -654,7 +1147,7 @@ class _ActiveCatheterCard extends StatelessWidget {
   }
 }
 
-/// Alert banner displayed during CAUTI Risk Window (Days 15+).
+/// Alert banner displayed during CAUTI Risk Window.
 class _CautiRiskAlertBanner extends StatelessWidget {
   final CatheterLifespanSummary summary;
 
@@ -697,7 +1190,7 @@ class _CautiRiskAlertBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Immediate replacement required to avoid CAUTI. Catheter has exceeded the 14-day indwelling safety lifespan by ${summary.daysOverdue} day${summary.daysOverdue == 1 ? '' : 's'}. High risk of Catheter-Associated Urinary Tract Infection.',
+                  'Immediate replacement required to avoid CAUTI. Catheter has exceeded the ${summary.totalLifespanDays}-day indwelling safety lifespan by ${summary.daysOverdue} day${summary.daysOverdue == 1 ? '' : 's'}. High risk of Catheter-Associated Urinary Tract Infection.',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onErrorContainer,
                     height: 1.3,

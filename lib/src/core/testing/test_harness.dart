@@ -383,6 +383,9 @@ class NephroTestHarness {
     required DateTime insertionDate,
     String? notes,
     String catheterType = 'foley',
+    CatheterMaterial material = CatheterMaterial.latex14Day,
+    int? customLifespanDays,
+    int? bagEmptyingIntervalHours,
   }) {
     return CatheterRepository(database).recordCatheterInsertion(
       id: id,
@@ -390,6 +393,9 @@ class NephroTestHarness {
       insertionDate: insertionDate,
       notes: notes,
       catheterType: catheterType,
+      material: material,
+      customLifespanDays: customLifespanDays,
+      bagEmptyingIntervalHours: bagEmptyingIntervalHours,
     );
   }
 
@@ -400,6 +406,9 @@ class NephroTestHarness {
     required DateTime replacementDate,
     String? notes,
     String catheterType = 'foley',
+    CatheterMaterial material = CatheterMaterial.latex14Day,
+    int? customLifespanDays,
+    int? bagEmptyingIntervalHours,
   }) {
     return CatheterRepository(database).recordCatheterReplacement(
       id: id,
@@ -407,6 +416,26 @@ class NephroTestHarness {
       replacementDate: replacementDate,
       notes: notes,
       catheterType: catheterType,
+      material: material,
+      customLifespanDays: customLifespanDays,
+      bagEmptyingIntervalHours: bagEmptyingIntervalHours,
+    );
+  }
+
+  /// Clinical helper to record a 1-tap Foley catheter bag emptied event with volume and hematuria grade.
+  Future<BagEmptiedResult> recordBagEmptied({
+    String? outputId,
+    required String patientId,
+    required int volumeMl,
+    required int hematuriaGrade,
+    DateTime? recordedAt,
+  }) {
+    return CatheterRepository(database).recordBagEmptied(
+      outputId: outputId,
+      patientId: patientId,
+      volumeMl: volumeMl,
+      hematuriaGrade: hematuriaGrade,
+      recordedAt: recordedAt,
     );
   }
 

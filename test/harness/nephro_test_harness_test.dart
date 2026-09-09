@@ -1149,5 +1149,191 @@ void main() {
       expect(bpFistulaRight.armUsed, equals('rightArm'));
       expect(bpFistulaRight.isSafeArm, isTrue);
     });
+
+    test('Top-level test harness verifies Multi-Condition Configurable Foley Catheter Lifespan, Scheduled Bag Reminders, and 1-Tap Bag Evacuation', () async {
+      // 1. Accessibility across all clinical condition profiles
+      // Hemodialysis patient
+      final hdPatient = await harness.createPatient(
+        name: 'HD Catheter Patient',
+        diagnosis: ClinicalCondition.hemodialysis.name,
+        prescribedDryWeightKg: 72.0,
+      );
+      // Peritoneal Dialysis patient
+      final pdPatient = await harness.createPatient(
+        name: 'PD Catheter Patient',
+        diagnosis: ClinicalCondition.peritonealDialysis.name,
+        prescribedDryWeightKg: 68.0,
+      );
+      // Non-Dialysis CKD patient
+      final ckdPatient = await harness.createPatient(
+        name: 'CKD Catheter Patient',
+        diagnosis: ClinicalCondition.nonDialysisCkd.name,
+        prescribedDryWeightKg: 75.0,
+      );
+      // Urological / Catheter patient
+      final uroPatient = await harness.createPatient(
+        name: 'Urology Catheter Patient',
+        diagnosis: ClinicalCondition.urologicalCatheter.name,
+        prescribedDryWeightKg: 70.0,
+      );
+
+      final baseTime = DateTime.utc(2026, 9, 1, 8, 0);
+
+      // 2. Material-driven lifespan & CAUTI Risk Window calculations
+      // HD: 30-day silicone catheter with 6-hour bag emptying interval
+      final hdCatheter = await harness.recordCatheterInsertion(
+        patientId: hdPatient.id,
+        insertionDate: baseTime,
+        material: CatheterMaterial.silicone30Day,
+        bagEmptyingIntervalHours: 6,
+        notes: '30-day silicone catheter for HD patient',
+      );
+      expect(hdCatheter.material, equals('silicone30Day'));
+      expect(hdCatheter.lifespanDays, equals(30));
+      expect(hdCatheter.bagEmptyingIntervalHours, equals(6));
+      expect(hdCatheter.replacementDueDate.isAtSameMomentAs(baseTime.add(const Duration(days: 30))), isTrue);
+
+      // Verify 30-day lifespan summary calculations
+      final hdDay1 = await harness.evaluateCatheterLifespan(hdPatient.id, asOf: baseTime);
+      expect(hdDay1!.totalLifespanDays, equals(30));
+      expect(hdDay1.material, equals(CatheterMaterial.silicone30Day));
+      expect(hdDay1.status, equals(CatheterLifespanStatus.green));
+      expect(hdDay1.daysRemaining, equals(30));
+      expect(hdDay1.isCautiRiskActive, isFalse);
+
+      final hdDay26 = await harness.evaluateCatheterLifespan(
+        hdPatient.id,
+        asOf: baseTime.add(const Duration(days: 25, hours: 1)),
+      );
+      expect(hdDay26!.status, equals(CatheterLifespanStatus.amber)); // <= 5 days remaining
+      expect(hdDay26.daysRemaining, equals(5));
+      expect(hdDay26.isCautiRiskActive, isFalse);
+
+      final hdDay31 = await harness.evaluateCatheterLifespan(
+        hdPatient.id,
+        asOf: baseTime.add(const Duration(days: 30, hours: 2)),
+      );
+      expect(hdDay31!.status, equals(CatheterLifespanStatus.red));
+      expect(hdDay31.isCautiRiskActive, isTrue);
+      expect(hdDay31.daysOverdue, equals(1));
+
+      // PD: 90-day silicone catheter with 8-hour interval
+      final pdCatheter = await harness.recordCatheterInsertion(
+        patientId: pdPatient.id,
+        insertionDate: baseTime,
+        material: CatheterMaterial.silicone90Day,
+        bagEmptyingIntervalHours: 8,
+      );
+      expect(pdCatheter.material, equals('silicone90Day'));
+      expect(pdCatheter.lifespanDays, equals(90));
+      expect(pdCatheter.bagEmptyingIntervalHours, equals(8));
+      expect(pdCatheter.replacementDueDate.isAtSameMomentAs(baseTime.add(const Duration(days: 90))), isTrue);
+
+      // CKD: Custom 45-day duration catheter
+      final ckdCatheter = await harness.recordCatheterInsertion(
+        patientId: ckdPatient.id,
+        insertionDate: baseTime,
+        material: CatheterMaterial.custom,
+        customLifespanDays: 45,
+        bagEmptyingIntervalHours: 4,
+      );
+      expect(ckdCatheter.material, equals('custom'));
+      expect(ckdCatheter.lifespanDays, equals(45));
+      expect(ckdCatheter.replacementDueDate.isAtSameMomentAs(baseTime.add(const Duration(days: 45))), isTrue);
+
+      final ckdSummary = await harness.evaluateCatheterLifespan(ckdPatient.id, asOf: baseTime);
+      expect(ckdSummary!.totalLifespanDays, equals(45));
+
+      // Urology: Standard 14-day latex catheter
+      final uroCatheter = await harness.recordCatheterInsertion(
+        patientId: uroPatient.id,
+        insertionDate: baseTime,
+        material: CatheterMaterial.latex14Day,
+      );
+      expect(uroCatheter.material, equals('latex14Day'));
+      expect(uroCatheter.lifespanDays, equals(14));
+
+      // 3. Scheduled Bag Emptying Reminders & 1-Tap "Bag Emptied" Action
+      // At insertion + 4 hours (interval is 6h): not due yet
+      final bagEvalBeforeDue = await harness.evaluateCatheterLifespan(
+        hdPatient.id,
+        asOf: baseTime.add(const Duration(hours: 4)),
+      );
+      expect(bagEvalBeforeDue!.isBagEmptyingDue, isFalse);
+      expect(bagEvalBeforeDue.minutesUntilNextBagEmptying, equals(120));
+
+      // At insertion + 7 hours: due!
+      final bagEvalDue = await harness.evaluateCatheterLifespan(
+        hdPatient.id,
+        asOf: baseTime.add(const Duration(hours: 7)),
+      );
+      expect(bagEvalDue!.isBagEmptyingDue, isTrue);
+      expect(bagEvalDue.minutesUntilNextBagEmptying, equals(0));
+
+      // 1-tap "Bag Emptied" action: captures evacuation volume (400 mL) and Hematuria Grade 2 (Pink/Light Orange)
+      final emptiedAt = baseTime.add(const Duration(hours: 7, minutes: 15));
+      final bagResult = await harness.recordBagEmptied(
+        patientId: hdPatient.id,
+        volumeMl: 400,
+        hematuriaGrade: 2,
+        recordedAt: emptiedAt,
+      );
+      final bagLog = bagResult.outputLog;
+      expect(bagLog.id, isNotEmpty);
+      expect(bagLog.volumeMl, equals(400));
+      expect(bagLog.hematuriaGrade, equals(2));
+      expect(bagLog.outputType, equals('urine'));
+      expect(bagResult.catheter.lastBagEmptiedAt, isNotNull);
+      expect(bagResult.catheter.lastBagEmptiedAt!.isAtSameMomentAs(emptiedAt), isTrue);
+
+      // Check that the bag emptying log persists in fluid output logs
+      final outputs = await harness.getFluidOutputLogs(hdPatient.id);
+      expect(outputs.length, equals(1));
+      expect(outputs.first.id, equals(bagLog.id));
+      expect(outputs.first.hematuriaGrade, equals(2));
+
+      // Check that 24-hour Fluid Balance accounts for the bag evacuation volume
+      final fluidBalance = await harness.get24HourFluidBalance(hdPatient.id, asOf: emptiedAt);
+      expect(fluidBalance.totalOutputMl, equals(400));
+
+      // Check that active catheter's lastBagEmptiedAt updated and nextBagEmptyingDue is reset
+      final activeHdCatheter = await harness.getActiveCatheter(hdPatient.id);
+      expect(activeHdCatheter!.lastBagEmptiedAt, isNotNull);
+      expect(activeHdCatheter.lastBagEmptiedAt!.isAtSameMomentAs(emptiedAt), isTrue);
+
+      final bagEvalAfter = await harness.evaluateCatheterLifespan(
+        hdPatient.id,
+        asOf: emptiedAt.add(const Duration(minutes: 30)),
+      );
+      expect(bagEvalAfter!.isBagEmptyingDue, isFalse);
+      expect(bagEvalAfter.nextBagEmptyingDue!.isAtSameMomentAs(emptiedAt.add(const Duration(hours: 6))), isTrue);
+
+      // 4. Catheter Replacement workflow across configurable materials
+      final replacementDate = baseTime.add(const Duration(days: 30));
+      final replacedCatheter = await harness.recordCatheterReplacement(
+        patientId: hdPatient.id,
+        replacementDate: replacementDate,
+        material: CatheterMaterial.silicone90Day,
+        bagEmptyingIntervalHours: 8,
+        notes: 'Upgraded to 90-day silicone catheter',
+      );
+      expect(replacedCatheter.id, isNot(equals(hdCatheter.id)));
+      expect(replacedCatheter.material, equals('silicone90Day'));
+      expect(replacedCatheter.lifespanDays, equals(90));
+      expect(replacedCatheter.bagEmptyingIntervalHours, equals(8));
+      expect(replacedCatheter.replacementDueDate.isAtSameMomentAs(replacementDate.add(const Duration(days: 90))), isTrue);
+
+      final hdHistory = await harness.getCatheterHistory(hdPatient.id);
+      expect(hdHistory.length, equals(2));
+      expect(hdHistory.firstWhere((c) => c.id == hdCatheter.id).status, equals('replaced'));
+      expect(hdHistory.firstWhere((c) => c.id == replacedCatheter.id).status, equals('active'));
+
+      final replacementSummary = await harness.evaluateCatheterLifespan(hdPatient.id, asOf: replacementDate);
+      expect(replacementSummary!.totalLifespanDays, equals(90));
+      expect(replacementSummary.material, equals(CatheterMaterial.silicone90Day));
+      expect(replacementSummary.status, equals(CatheterLifespanStatus.green));
+      expect(replacementSummary.daysRemaining, equals(90));
+      expect(replacementSummary.isCautiRiskActive, isFalse);
+    });
   });
 }

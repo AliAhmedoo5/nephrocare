@@ -65,6 +65,14 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
+  void _openCatheterLifespan(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => CatheterLifespanScreen(patient: patient),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -84,6 +92,12 @@ class DashboardScreen extends ConsumerWidget {
         ),
         backgroundColor: theme.colorScheme.primaryContainer,
         actions: [
+          IconButton(
+            key: const Key('open_catheter_button'),
+            icon: const Icon(Icons.timer_outlined),
+            tooltip: 'Urine Foley Catheter Lifespan',
+            onPressed: () => _openCatheterLifespan(context),
+          ),
           IconButton(
             key: const Key('open_peer_sync_button'),
             icon: const Icon(Icons.sync_alt_rounded),
@@ -219,10 +233,15 @@ class DashboardScreen extends ConsumerWidget {
                               value: '${fluidSummary.netBalanceMl >= 0 ? '+' : ''}${fluidSummary.netBalanceMl} mL',
                             ),
                           if (catheterSummary != null)
-                            _MetricItem(
-                              icon: Icons.timer_outlined,
-                              label: 'Foley Catheter',
-                              value: 'Day ${catheterSummary.dayOfCycle} of 14',
+                            InkWell(
+                              key: const Key('dashboard_catheter_metric_tile'),
+                              borderRadius: BorderRadius.circular(8),
+                              onTap: () => _openCatheterLifespan(context),
+                              child: _MetricItem(
+                                icon: Icons.timer_outlined,
+                                label: 'Foley Catheter',
+                                value: 'Day ${catheterSummary.dayOfCycle} of ${catheterSummary.totalLifespanDays}',
+                              ),
                             ),
                         ],
                       ),
@@ -282,48 +301,52 @@ class DashboardScreen extends ConsumerWidget {
               // 3. CAUTI Risk Window Banner per CONTEXT.md
               if (catheterSummary != null && catheterSummary.isCautiRiskActive) ...[
                 const SizedBox(height: 12),
-                Container(
+                InkWell(
                   key: const Key('dashboard_cauti_risk_alert'),
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.errorContainer,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: theme.colorScheme.error,
-                      width: 1.5,
+                  onTap: () => _openCatheterLifespan(context),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.errorContainer,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: theme.colorScheme.error,
+                        width: 1.5,
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.warning_amber_rounded,
-                        color: theme.colorScheme.onErrorContainer,
-                        size: 28,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'CAUTI Risk Window Active',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                color: theme.colorScheme.onErrorContainer,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Indwelling Foley catheter exceeded 14-day lifespan (${catheterSummary.daysOverdue} day${catheterSummary.daysOverdue == 1 ? '' : 's'} past due). Timely replacement mandated to avoid infection.',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onErrorContainer,
-                                height: 1.3,
-                              ),
-                            ),
-                          ],
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          color: theme.colorScheme.onErrorContainer,
+                          size: 28,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'CAUTI Risk Window Active',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  color: theme.colorScheme.onErrorContainer,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Indwelling Foley catheter exceeded ${catheterSummary.totalLifespanDays}-day lifespan (${catheterSummary.daysOverdue} day${catheterSummary.daysOverdue == 1 ? '' : 's'} past due). Timely replacement mandated to avoid infection.',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onErrorContainer,
+                                  height: 1.3,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],

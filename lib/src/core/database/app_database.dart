@@ -104,6 +104,10 @@ class CatheterEvents extends Table {
   DateTimeColumn get replacementDueDate => dateTime()();
   TextColumn get status => text()(); // active, replaced, removed
   TextColumn get notes => text().nullable()();
+  TextColumn get material => text().withDefault(const Constant('latex14Day'))();
+  IntColumn get lifespanDays => integer().withDefault(const Constant(14))();
+  IntColumn get bagEmptyingIntervalHours => integer().nullable()();
+  DateTimeColumn get lastBagEmptiedAt => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
   DateTimeColumn get updatedAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
 

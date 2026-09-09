@@ -63,7 +63,55 @@ class HematuriaGradeInfo {
   }
 }
 
-/// Evaluation summary of the Urine Foley Catheter 14-day lifespan cycle.
+/// Indwelling Foley catheter material and standard clinical lifespan options.
+enum CatheterMaterial {
+  latex14Day(
+    displayName: '14-Day Latex',
+    materialName: 'Latex',
+    defaultLifespanDays: 14,
+    amberWindowDays: 4,
+  ),
+  silicone30Day(
+    displayName: '30-Day Silicone',
+    materialName: 'Silicone (Short-term)',
+    defaultLifespanDays: 30,
+    amberWindowDays: 7,
+  ),
+  silicone90Day(
+    displayName: '90-Day Silicone',
+    materialName: 'Silicone (Long-term)',
+    defaultLifespanDays: 90,
+    amberWindowDays: 14,
+  ),
+  custom(
+    displayName: 'Custom Duration',
+    materialName: 'Custom Material',
+    defaultLifespanDays: 14,
+    amberWindowDays: 4,
+  );
+
+  final String displayName;
+  final String materialName;
+  final int defaultLifespanDays;
+  final int amberWindowDays;
+
+  const CatheterMaterial({
+    required this.displayName,
+    required this.materialName,
+    required this.defaultLifespanDays,
+    required this.amberWindowDays,
+  });
+
+  static CatheterMaterial fromString(String? name) {
+    if (name == null) return CatheterMaterial.latex14Day;
+    for (final mat in CatheterMaterial.values) {
+      if (mat.name == name) return mat;
+    }
+    return CatheterMaterial.latex14Day;
+  }
+}
+
+/// Evaluation summary of the indwelling Urine Foley Catheter lifespan cycle.
 class CatheterLifespanSummary {
   final DateTime insertionDate;
   final DateTime replacementDueDate;
@@ -74,6 +122,13 @@ class CatheterLifespanSummary {
   final int daysOverdue;
   final CatheterLifespanStatus status;
   final bool isCautiRiskActive;
+  final CatheterMaterial material;
+  final int totalLifespanDays;
+  final int? bagEmptyingIntervalHours;
+  final DateTime? lastBagEmptiedAt;
+  final DateTime? nextBagEmptyingDue;
+  final bool isBagEmptyingDue;
+  final int? minutesUntilNextBagEmptying;
 
   const CatheterLifespanSummary({
     required this.insertionDate,
@@ -85,27 +140,39 @@ class CatheterLifespanSummary {
     required this.daysOverdue,
     required this.status,
     required this.isCautiRiskActive,
+    this.material = CatheterMaterial.latex14Day,
+    this.totalLifespanDays = 14,
+    this.effectiveAmberWindowDays = 4,
+    this.bagEmptyingIntervalHours,
+    this.lastBagEmptiedAt,
+    this.nextBagEmptyingDue,
+    this.isBagEmptyingDue = false,
+    this.minutesUntilNextBagEmptying,
   });
 
+  final int effectiveAmberWindowDays;
+
   String get statusTitle {
+    final amberStart = totalLifespanDays - effectiveAmberWindowDays + 1;
+    final greenEnd = amberStart - 1;
     switch (status) {
       case CatheterLifespanStatus.green:
-        return 'Lifespan Optimal (Days 1–10)';
+        return 'Lifespan Optimal (Days 1–$greenEnd)';
       case CatheterLifespanStatus.amber:
-        return 'Replacement Approaching (Days 11–14)';
+        return 'Replacement Approaching (Days $amberStart–$totalLifespanDays)';
       case CatheterLifespanStatus.red:
-        return 'CAUTI Risk Window Active (Days 15+)';
+        return 'CAUTI Risk Window Active (Days ${totalLifespanDays + 1}+)';
     }
   }
 
   String get statusDescription {
     switch (status) {
       case CatheterLifespanStatus.green:
-        return 'Foley catheter is within the normal 14-day lifespan cycle. Continue monitoring drainage and hematuria.';
+        return 'Foley catheter is within the normal $totalLifespanDays-day lifespan cycle. Continue monitoring drainage and hematuria.';
       case CatheterLifespanStatus.amber:
-        return 'Catheter has reached day $dayOfCycle of 14. Plan clinical replacement within $daysRemaining day${daysRemaining == 1 ? '' : 's'}.';
+        return 'Catheter has reached day $dayOfCycle of $totalLifespanDays. Plan clinical replacement within $daysRemaining day${daysRemaining == 1 ? '' : 's'}.';
       case CatheterLifespanStatus.red:
-        return 'Catheter has exceeded 14 days of indwelling placement ($daysOverdue day${daysOverdue == 1 ? '' : 's'} past due). Immediate replacement required to avoid CAUTI.';
+        return 'Catheter has exceeded $totalLifespanDays days of indwelling placement ($daysOverdue day${daysOverdue == 1 ? '' : 's'} past due). Immediate replacement required to avoid CAUTI.';
     }
   }
 
@@ -132,49 +199,80 @@ class CatheterLifespanSummary {
   }
 }
 
-/// Clinical calculation rules for indwelling Urine Foley Catheter 14-day lifespan cycle per CONTEXT.md.
+/// Clinical calculation rules for indwelling Urine Foley Catheter lifespan cycle per CONTEXT.md.
 class CatheterLifespanRules {
   /// Standard clinical lifespan of indwelling Foley Catheter before replacement.
   static const int lifespanDays = 14;
 
-  /// Evaluates the 14-day lifespan cycle and CAUTI risk window for a catheter.
-  ///
-  /// Transitions:
-  /// - Green: Days 1–10 (normal cycle)
-  /// - Amber: Days 11–14 (timely replacement mandated)
-  /// - Red: Days 15+ (CAUTI Risk Window active)
+  /// Evaluates the lifespan cycle, dynamic CAUTI risk window, and collection bag emptying schedule.
   static CatheterLifespanSummary evaluateLifespan({
     required DateTime insertionDate,
     DateTime? asOf,
     DateTime? replacementDueDate,
+    CatheterMaterial material = CatheterMaterial.latex14Day,
+    int? customLifespanDays,
+    int? bagEmptyingIntervalHours,
+    DateTime? lastBagEmptiedAt,
   }) {
     final referenceTime = asOf?.toUtc() ?? DateTime.now().toUtc();
     final insertUtc = insertionDate.toUtc();
-    final dueDate = replacementDueDate?.toUtc() ?? insertUtc.add(const Duration(days: lifespanDays));
 
-    // Calculate calendar days difference or full 24-hour periods
-    // Difference from insertion date:
+    // Determine totalLifespanDays
+    int totalLifespan;
+    if (customLifespanDays != null && customLifespanDays > 0) {
+      totalLifespan = customLifespanDays;
+    } else if (replacementDueDate != null) {
+      final diff = replacementDueDate.toUtc().difference(insertUtc).inDays;
+      totalLifespan = diff > 0 ? diff : material.defaultLifespanDays;
+    } else {
+      totalLifespan = material.defaultLifespanDays;
+    }
+
+    final dueDate = replacementDueDate?.toUtc() ?? insertUtc.add(Duration(days: totalLifespan));
+
     final difference = referenceTime.difference(insertUtc);
     final daysElapsed = difference.inDays < 0 ? 0 : difference.inDays;
     final dayOfCycle = daysElapsed + 1;
+
+    final effectiveAmberWindow = material == CatheterMaterial.custom
+        ? (totalLifespan * 0.2).round().clamp(3, 14)
+        : material.amberWindowDays;
+    final amberStartDay = totalLifespan - effectiveAmberWindow + 1;
 
     CatheterLifespanStatus status;
     bool isCautiRiskActive = false;
     int daysRemaining = 0;
     int daysOverdue = 0;
 
-    if (dayOfCycle <= 10) {
+    if (dayOfCycle < amberStartDay) {
       status = CatheterLifespanStatus.green;
-      daysRemaining = (lifespanDays - daysElapsed).clamp(0, lifespanDays);
-    } else if (dayOfCycle <= 14) {
+      daysRemaining = (totalLifespan - daysElapsed).clamp(0, totalLifespan);
+    } else if (dayOfCycle <= totalLifespan) {
       status = CatheterLifespanStatus.amber;
-      daysRemaining = (lifespanDays - daysElapsed).clamp(0, lifespanDays);
+      daysRemaining = (totalLifespan - daysElapsed).clamp(0, totalLifespan);
     } else {
-      // Days 15+ -> CAUTI Risk Window active
       status = CatheterLifespanStatus.red;
       isCautiRiskActive = true;
       daysRemaining = 0;
-      daysOverdue = dayOfCycle - lifespanDays; // Day 15 is 1 day past due, Day 16 is 2 days past due
+      daysOverdue = dayOfCycle - totalLifespan;
+    }
+
+    // Collection bag emptying interval calculations
+    DateTime? nextBagEmptyingDue;
+    bool isBagEmptyingDue = false;
+    int? minutesUntilNextBagEmptying;
+
+    if (bagEmptyingIntervalHours != null && bagEmptyingIntervalHours > 0) {
+      final baselineTime = (lastBagEmptiedAt != null) ? lastBagEmptiedAt.toUtc() : insertUtc;
+      nextBagEmptyingDue = baselineTime.add(Duration(hours: bagEmptyingIntervalHours));
+      final diffMinutes = nextBagEmptyingDue.difference(referenceTime).inMinutes;
+      if (diffMinutes <= 0) {
+        isBagEmptyingDue = true;
+        minutesUntilNextBagEmptying = 0;
+      } else {
+        isBagEmptyingDue = false;
+        minutesUntilNextBagEmptying = diffMinutes;
+      }
     }
 
     return CatheterLifespanSummary(
@@ -187,6 +285,14 @@ class CatheterLifespanRules {
       daysOverdue: daysOverdue,
       status: status,
       isCautiRiskActive: isCautiRiskActive,
+      material: material,
+      totalLifespanDays: totalLifespan,
+      effectiveAmberWindowDays: effectiveAmberWindow,
+      bagEmptyingIntervalHours: bagEmptyingIntervalHours,
+      lastBagEmptiedAt: lastBagEmptiedAt?.toUtc(),
+      nextBagEmptyingDue: nextBagEmptyingDue,
+      isBagEmptyingDue: isBagEmptyingDue,
+      minutesUntilNextBagEmptying: minutesUntilNextBagEmptying,
     );
   }
 }

@@ -78,7 +78,7 @@ class ConditionAdaptiveGrid extends StatelessWidget {
               effectiveCard = ClinicalActionCard(
                 id: card.id,
                 title: card.title,
-                subtitle: 'Day ${catheterSummary!.dayOfCycle} of 14 • ${catheterSummary!.statusTitle}',
+                subtitle: 'Day ${catheterSummary!.dayOfCycle} of ${catheterSummary!.totalLifespanDays} • ${catheterSummary!.statusTitle}',
                 icon: card.icon,
                 semanticLabel: card.semanticLabel,
                 accentColor: catheterSummary!.statusColor,

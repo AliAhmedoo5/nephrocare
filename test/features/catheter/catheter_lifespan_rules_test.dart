@@ -99,5 +99,149 @@ void main() {
       expect(() => HematuriaGradeInfo.fromGrade(0), throwsArgumentError);
       expect(() => HematuriaGradeInfo.fromGrade(5), throwsArgumentError);
     });
+
+    test('CatheterMaterial enum maps lifespans and parses strings correctly', () {
+      expect(CatheterMaterial.latex14Day.defaultLifespanDays, equals(14));
+      expect(CatheterMaterial.latex14Day.displayName, equals('14-Day Latex'));
+      expect(CatheterMaterial.silicone30Day.defaultLifespanDays, equals(30));
+      expect(CatheterMaterial.silicone30Day.displayName, equals('30-Day Silicone'));
+      expect(CatheterMaterial.silicone90Day.defaultLifespanDays, equals(90));
+      expect(CatheterMaterial.silicone90Day.displayName, equals('90-Day Silicone'));
+      expect(CatheterMaterial.custom.displayName, equals('Custom Duration'));
+
+      expect(CatheterMaterial.fromString('latex14Day'), equals(CatheterMaterial.latex14Day));
+      expect(CatheterMaterial.fromString('silicone30Day'), equals(CatheterMaterial.silicone30Day));
+      expect(CatheterMaterial.fromString('silicone90Day'), equals(CatheterMaterial.silicone90Day));
+      expect(CatheterMaterial.fromString('custom'), equals(CatheterMaterial.custom));
+      expect(CatheterMaterial.fromString('unknown'), equals(CatheterMaterial.latex14Day));
+    });
+
+    test('30-Day Silicone catheter evaluates green, amber, and red CAUTI risk correctly', () {
+      // Day 1
+      final day1 = CatheterLifespanRules.evaluateLifespan(
+        insertionDate: insertionDate,
+        material: CatheterMaterial.silicone30Day,
+        asOf: DateTime.utc(2026, 9, 1, 10, 0),
+      );
+      expect(day1.totalLifespanDays, equals(30));
+      expect(day1.dayOfCycle, equals(1));
+      expect(day1.status, equals(CatheterLifespanStatus.green));
+      expect(day1.isCautiRiskActive, isFalse);
+      expect(day1.daysRemaining, equals(30));
+
+      // Day 22 (still green)
+      final day22 = CatheterLifespanRules.evaluateLifespan(
+        insertionDate: insertionDate,
+        material: CatheterMaterial.silicone30Day,
+        asOf: DateTime.utc(2026, 9, 22, 10, 0),
+      );
+      expect(day22.dayOfCycle, equals(22));
+      expect(day22.status, equals(CatheterLifespanStatus.green));
+
+      // Day 25 (approaching replacement: Amber)
+      final day25 = CatheterLifespanRules.evaluateLifespan(
+        insertionDate: insertionDate,
+        material: CatheterMaterial.silicone30Day,
+        asOf: DateTime.utc(2026, 9, 25, 10, 0),
+      );
+      expect(day25.dayOfCycle, equals(25));
+      expect(day25.status, equals(CatheterLifespanStatus.amber));
+      expect(day25.isCautiRiskActive, isFalse);
+      expect(day25.daysRemaining, equals(6));
+
+      // Day 31 (Day 31 of 30: CAUTI Risk Window active)
+      final day31 = CatheterLifespanRules.evaluateLifespan(
+        insertionDate: insertionDate,
+        material: CatheterMaterial.silicone30Day,
+        asOf: DateTime.utc(2026, 10, 1, 10, 0),
+      );
+      expect(day31.dayOfCycle, equals(31));
+      expect(day31.status, equals(CatheterLifespanStatus.red));
+      expect(day31.isCautiRiskActive, isTrue);
+      expect(day31.daysOverdue, equals(1));
+    });
+
+    test('90-Day Silicone catheter evaluates lifespan and CAUTI risk progression', () {
+      // Day 1
+      final day1 = CatheterLifespanRules.evaluateLifespan(
+        insertionDate: insertionDate,
+        material: CatheterMaterial.silicone90Day,
+        asOf: DateTime.utc(2026, 9, 1, 10, 0),
+      );
+      expect(day1.totalLifespanDays, equals(90));
+      expect(day1.dayOfCycle, equals(1));
+      expect(day1.status, equals(CatheterLifespanStatus.green));
+
+      // Day 80 (approaching replacement: Amber)
+      final day80 = CatheterLifespanRules.evaluateLifespan(
+        insertionDate: insertionDate,
+        material: CatheterMaterial.silicone90Day,
+        asOf: insertionDate.add(const Duration(days: 79)),
+      );
+      expect(day80.dayOfCycle, equals(80));
+      expect(day80.status, equals(CatheterLifespanStatus.amber));
+      expect(day80.isCautiRiskActive, isFalse);
+
+      // Day 91 (overdue: Red CAUTI)
+      final day91 = CatheterLifespanRules.evaluateLifespan(
+        insertionDate: insertionDate,
+        material: CatheterMaterial.silicone90Day,
+        asOf: insertionDate.add(const Duration(days: 90)),
+      );
+      expect(day91.dayOfCycle, equals(91));
+      expect(day91.status, equals(CatheterLifespanStatus.red));
+      expect(day91.isCautiRiskActive, isTrue);
+      expect(day91.daysOverdue, equals(1));
+    });
+
+    test('Custom lifespan duration evaluates dynamically', () {
+      final custom21 = CatheterLifespanRules.evaluateLifespan(
+        insertionDate: insertionDate,
+        material: CatheterMaterial.custom,
+        customLifespanDays: 21,
+        asOf: insertionDate.add(const Duration(days: 21)),
+      );
+      expect(custom21.totalLifespanDays, equals(21));
+      expect(custom21.dayOfCycle, equals(22));
+      expect(custom21.status, equals(CatheterLifespanStatus.red));
+      expect(custom21.isCautiRiskActive, isTrue);
+      expect(custom21.daysOverdue, equals(1));
+    });
+
+    test('Scheduled collection bag emptying reminders compute interval and overdue status', () {
+      final inserted = DateTime.utc(2026, 9, 1, 8, 0);
+
+      // 4-hour interval, check at 2 hours (not due)
+      final status2h = CatheterLifespanRules.evaluateLifespan(
+        insertionDate: inserted,
+        bagEmptyingIntervalHours: 4,
+        asOf: DateTime.utc(2026, 9, 1, 10, 0),
+      );
+      expect(status2h.bagEmptyingIntervalHours, equals(4));
+      expect(status2h.nextBagEmptyingDue, equals(DateTime.utc(2026, 9, 1, 12, 0)));
+      expect(status2h.isBagEmptyingDue, isFalse);
+      expect(status2h.minutesUntilNextBagEmptying, equals(120));
+
+      // Check at 4 hours (due)
+      final status4h = CatheterLifespanRules.evaluateLifespan(
+        insertionDate: inserted,
+        bagEmptyingIntervalHours: 4,
+        asOf: DateTime.utc(2026, 9, 1, 12, 0),
+      );
+      expect(status4h.isBagEmptyingDue, isTrue);
+      expect(status4h.minutesUntilNextBagEmptying, equals(0));
+
+      // After bag is emptied at 12:30, next due should be 16:30 for 4-hour interval
+      final emptiedAt = DateTime.utc(2026, 9, 1, 12, 30);
+      final statusAfterEmpty = CatheterLifespanRules.evaluateLifespan(
+        insertionDate: inserted,
+        lastBagEmptiedAt: emptiedAt,
+        bagEmptyingIntervalHours: 4,
+        asOf: DateTime.utc(2026, 9, 1, 13, 30),
+      );
+      expect(statusAfterEmpty.nextBagEmptyingDue, equals(DateTime.utc(2026, 9, 1, 16, 30)));
+      expect(statusAfterEmpty.isBagEmptyingDue, isFalse);
+      expect(statusAfterEmpty.minutesUntilNextBagEmptying, equals(180));
+    });
   });
 }

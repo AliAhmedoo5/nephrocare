@@ -140,5 +140,130 @@ void main() {
         throwsArgumentError,
       );
     });
+
+    test('Records catheter with configurable material (30-day silicone) and bag emptying interval', () async {
+      final insertionDate = DateTime.utc(2026, 9, 1, 8, 0);
+
+      final catheter = await repository.recordCatheterInsertion(
+        patientId: patientId,
+        insertionDate: insertionDate,
+        material: CatheterMaterial.silicone30Day,
+        bagEmptyingIntervalHours: 6,
+        notes: '30-day silicone Foley catheter placed.',
+      );
+
+      expect(catheter.material, equals('silicone30Day'));
+      expect(catheter.lifespanDays, equals(30));
+      expect(catheter.bagEmptyingIntervalHours, equals(6));
+      expect(catheter.replacementDueDate.isAtSameMomentAs(insertionDate.add(const Duration(days: 30))), isTrue);
+
+      final summary = await repository.getCatheterLifespanSummary(
+        patientId,
+        asOf: DateTime.utc(2026, 9, 1, 11, 0),
+      );
+      expect(summary, isNotNull);
+      expect(summary!.material, equals(CatheterMaterial.silicone30Day));
+      expect(summary.totalLifespanDays, equals(30));
+      expect(summary.bagEmptyingIntervalHours, equals(6));
+      expect(summary.nextBagEmptyingDue!.isAtSameMomentAs(insertionDate.add(const Duration(hours: 6))), isTrue);
+      expect(summary.isBagEmptyingDue, isFalse);
+    });
+
+    test('Records catheter with custom lifespan days (e.g. 21 days)', () async {
+      final insertionDate = DateTime.utc(2026, 9, 1, 8, 0);
+
+      final catheter = await repository.recordCatheterInsertion(
+        patientId: patientId,
+        insertionDate: insertionDate,
+        material: CatheterMaterial.custom,
+        customLifespanDays: 21,
+      );
+
+      expect(catheter.material, equals('custom'));
+      expect(catheter.lifespanDays, equals(21));
+      expect(catheter.replacementDueDate.isAtSameMomentAs(insertionDate.add(const Duration(days: 21))), isTrue);
+    });
+
+    test('1-tap recordBagEmptied documents evacuated volume and Hematuria Grade in a single unified step', () async {
+      final insertionDate = DateTime.utc(2026, 9, 1, 8, 0);
+      await repository.recordCatheterInsertion(
+        patientId: patientId,
+        insertionDate: insertionDate,
+        material: CatheterMaterial.latex14Day,
+        bagEmptyingIntervalHours: 4,
+      );
+
+      // Verify before emptying: next due is 8:00 + 4h = 12:00
+      final summaryBefore = await repository.getCatheterLifespanSummary(
+        patientId,
+        asOf: DateTime.utc(2026, 9, 1, 9, 0),
+      );
+      expect(summaryBefore!.lastBagEmptiedAt, isNull);
+      expect(summaryBefore.nextBagEmptyingDue!.isAtSameMomentAs(DateTime.utc(2026, 9, 1, 12, 0)), isTrue);
+
+      // Perform 1-tap "Bag Emptied" recording action at 12:00
+      final emptyTime = DateTime.utc(2026, 9, 1, 12, 0);
+      final result = await repository.recordBagEmptied(
+        patientId: patientId,
+        volumeMl: 550,
+        hematuriaGrade: 2,
+        recordedAt: emptyTime,
+      );
+
+      // Verify FluidOutputLog was created with correct attributes
+      expect(result.outputLog.patientId, equals(patientId));
+      expect(result.outputLog.volumeMl, equals(550));
+      expect(result.outputLog.hematuriaGrade, equals(2));
+      expect(result.outputLog.outputType, equals('urine'));
+      expect(result.outputLog.recordedAt.isAtSameMomentAs(emptyTime), isTrue);
+
+      // Verify active catheter record updated lastBagEmptiedAt
+      expect(result.catheter.lastBagEmptiedAt!.isAtSameMomentAs(emptyTime), isTrue);
+
+      // Verify updated summary reflects new schedule (next due is 12:00 + 4h = 16:00)
+      final summaryAfter = await repository.getCatheterLifespanSummary(
+        patientId,
+        asOf: DateTime.utc(2026, 9, 1, 13, 0),
+      );
+      expect(summaryAfter!.lastBagEmptiedAt!.isAtSameMomentAs(emptyTime), isTrue);
+      expect(summaryAfter.nextBagEmptyingDue!.isAtSameMomentAs(DateTime.utc(2026, 9, 1, 16, 0)), isTrue);
+      expect(summaryAfter.isBagEmptyingDue, isFalse);
+      expect(summaryAfter.minutesUntilNextBagEmptying, equals(180));
+    });
+
+    test('recordBagEmptied validates volume and Hematuria Grade constraints', () async {
+      await repository.recordCatheterInsertion(
+        patientId: patientId,
+        insertionDate: DateTime.utc(2026, 9, 1, 8, 0),
+      );
+
+      // Invalid volume
+      expect(
+        () => repository.recordBagEmptied(
+          patientId: patientId,
+          volumeMl: 0,
+          hematuriaGrade: 1,
+        ),
+        throwsArgumentError,
+      );
+
+      // Invalid Hematuria grade (< 1 or > 4)
+      expect(
+        () => repository.recordBagEmptied(
+          patientId: patientId,
+          volumeMl: 300,
+          hematuriaGrade: 0,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => repository.recordBagEmptied(
+          patientId: patientId,
+          volumeMl: 300,
+          hematuriaGrade: 5,
+        ),
+        throwsArgumentError,
+      );
+    });
   });
 }

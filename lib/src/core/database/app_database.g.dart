@@ -3356,6 +3356,53 @@ class $CatheterEventsTable extends CatheterEvents
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _materialMeta = const VerificationMeta(
+    'material',
+  );
+  @override
+  late final GeneratedColumn<String> material = GeneratedColumn<String>(
+    'material',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('latex14Day'),
+  );
+  static const VerificationMeta _lifespanDaysMeta = const VerificationMeta(
+    'lifespanDays',
+  );
+  @override
+  late final GeneratedColumn<int> lifespanDays = GeneratedColumn<int>(
+    'lifespan_days',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(14),
+  );
+  static const VerificationMeta _bagEmptyingIntervalHoursMeta =
+      const VerificationMeta('bagEmptyingIntervalHours');
+  @override
+  late final GeneratedColumn<int> bagEmptyingIntervalHours =
+      GeneratedColumn<int>(
+        'bag_emptying_interval_hours',
+        aliasedName,
+        true,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _lastBagEmptiedAtMeta = const VerificationMeta(
+    'lastBagEmptiedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastBagEmptiedAt =
+      GeneratedColumn<DateTime>(
+        'last_bag_emptied_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -3389,6 +3436,10 @@ class $CatheterEventsTable extends CatheterEvents
     replacementDueDate,
     status,
     notes,
+    material,
+    lifespanDays,
+    bagEmptyingIntervalHours,
+    lastBagEmptiedAt,
     createdAt,
     updatedAt,
   ];
@@ -3462,6 +3513,39 @@ class $CatheterEventsTable extends CatheterEvents
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
+    if (data.containsKey('material')) {
+      context.handle(
+        _materialMeta,
+        material.isAcceptableOrUnknown(data['material']!, _materialMeta),
+      );
+    }
+    if (data.containsKey('lifespan_days')) {
+      context.handle(
+        _lifespanDaysMeta,
+        lifespanDays.isAcceptableOrUnknown(
+          data['lifespan_days']!,
+          _lifespanDaysMeta,
+        ),
+      );
+    }
+    if (data.containsKey('bag_emptying_interval_hours')) {
+      context.handle(
+        _bagEmptyingIntervalHoursMeta,
+        bagEmptyingIntervalHours.isAcceptableOrUnknown(
+          data['bag_emptying_interval_hours']!,
+          _bagEmptyingIntervalHoursMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_bag_emptied_at')) {
+      context.handle(
+        _lastBagEmptiedAtMeta,
+        lastBagEmptiedAt.isAcceptableOrUnknown(
+          data['last_bag_emptied_at']!,
+          _lastBagEmptiedAtMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -3511,6 +3595,22 @@ class $CatheterEventsTable extends CatheterEvents
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       ),
+      material: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}material'],
+      )!,
+      lifespanDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}lifespan_days'],
+      )!,
+      bagEmptyingIntervalHours: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}bag_emptying_interval_hours'],
+      ),
+      lastBagEmptiedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_bag_emptied_at'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -3536,6 +3636,10 @@ class CatheterEvent extends DataClass implements Insertable<CatheterEvent> {
   final DateTime replacementDueDate;
   final String status;
   final String? notes;
+  final String material;
+  final int lifespanDays;
+  final int? bagEmptyingIntervalHours;
+  final DateTime? lastBagEmptiedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
   const CatheterEvent({
@@ -3546,6 +3650,10 @@ class CatheterEvent extends DataClass implements Insertable<CatheterEvent> {
     required this.replacementDueDate,
     required this.status,
     this.notes,
+    required this.material,
+    required this.lifespanDays,
+    this.bagEmptyingIntervalHours,
+    this.lastBagEmptiedAt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -3560,6 +3668,16 @@ class CatheterEvent extends DataClass implements Insertable<CatheterEvent> {
     map['status'] = Variable<String>(status);
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
+    }
+    map['material'] = Variable<String>(material);
+    map['lifespan_days'] = Variable<int>(lifespanDays);
+    if (!nullToAbsent || bagEmptyingIntervalHours != null) {
+      map['bag_emptying_interval_hours'] = Variable<int>(
+        bagEmptyingIntervalHours,
+      );
+    }
+    if (!nullToAbsent || lastBagEmptiedAt != null) {
+      map['last_bag_emptied_at'] = Variable<DateTime>(lastBagEmptiedAt);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -3577,6 +3695,14 @@ class CatheterEvent extends DataClass implements Insertable<CatheterEvent> {
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
+      material: Value(material),
+      lifespanDays: Value(lifespanDays),
+      bagEmptyingIntervalHours: bagEmptyingIntervalHours == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bagEmptyingIntervalHours),
+      lastBagEmptiedAt: lastBagEmptiedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastBagEmptiedAt),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -3597,6 +3723,14 @@ class CatheterEvent extends DataClass implements Insertable<CatheterEvent> {
       ),
       status: serializer.fromJson<String>(json['status']),
       notes: serializer.fromJson<String?>(json['notes']),
+      material: serializer.fromJson<String>(json['material']),
+      lifespanDays: serializer.fromJson<int>(json['lifespanDays']),
+      bagEmptyingIntervalHours: serializer.fromJson<int?>(
+        json['bagEmptyingIntervalHours'],
+      ),
+      lastBagEmptiedAt: serializer.fromJson<DateTime?>(
+        json['lastBagEmptiedAt'],
+      ),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -3612,6 +3746,12 @@ class CatheterEvent extends DataClass implements Insertable<CatheterEvent> {
       'replacementDueDate': serializer.toJson<DateTime>(replacementDueDate),
       'status': serializer.toJson<String>(status),
       'notes': serializer.toJson<String?>(notes),
+      'material': serializer.toJson<String>(material),
+      'lifespanDays': serializer.toJson<int>(lifespanDays),
+      'bagEmptyingIntervalHours': serializer.toJson<int?>(
+        bagEmptyingIntervalHours,
+      ),
+      'lastBagEmptiedAt': serializer.toJson<DateTime?>(lastBagEmptiedAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -3625,6 +3765,10 @@ class CatheterEvent extends DataClass implements Insertable<CatheterEvent> {
     DateTime? replacementDueDate,
     String? status,
     Value<String?> notes = const Value.absent(),
+    String? material,
+    int? lifespanDays,
+    Value<int?> bagEmptyingIntervalHours = const Value.absent(),
+    Value<DateTime?> lastBagEmptiedAt = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => CatheterEvent(
@@ -3635,6 +3779,14 @@ class CatheterEvent extends DataClass implements Insertable<CatheterEvent> {
     replacementDueDate: replacementDueDate ?? this.replacementDueDate,
     status: status ?? this.status,
     notes: notes.present ? notes.value : this.notes,
+    material: material ?? this.material,
+    lifespanDays: lifespanDays ?? this.lifespanDays,
+    bagEmptyingIntervalHours: bagEmptyingIntervalHours.present
+        ? bagEmptyingIntervalHours.value
+        : this.bagEmptyingIntervalHours,
+    lastBagEmptiedAt: lastBagEmptiedAt.present
+        ? lastBagEmptiedAt.value
+        : this.lastBagEmptiedAt,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -3653,6 +3805,16 @@ class CatheterEvent extends DataClass implements Insertable<CatheterEvent> {
           : this.replacementDueDate,
       status: data.status.present ? data.status.value : this.status,
       notes: data.notes.present ? data.notes.value : this.notes,
+      material: data.material.present ? data.material.value : this.material,
+      lifespanDays: data.lifespanDays.present
+          ? data.lifespanDays.value
+          : this.lifespanDays,
+      bagEmptyingIntervalHours: data.bagEmptyingIntervalHours.present
+          ? data.bagEmptyingIntervalHours.value
+          : this.bagEmptyingIntervalHours,
+      lastBagEmptiedAt: data.lastBagEmptiedAt.present
+          ? data.lastBagEmptiedAt.value
+          : this.lastBagEmptiedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -3668,6 +3830,10 @@ class CatheterEvent extends DataClass implements Insertable<CatheterEvent> {
           ..write('replacementDueDate: $replacementDueDate, ')
           ..write('status: $status, ')
           ..write('notes: $notes, ')
+          ..write('material: $material, ')
+          ..write('lifespanDays: $lifespanDays, ')
+          ..write('bagEmptyingIntervalHours: $bagEmptyingIntervalHours, ')
+          ..write('lastBagEmptiedAt: $lastBagEmptiedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -3683,6 +3849,10 @@ class CatheterEvent extends DataClass implements Insertable<CatheterEvent> {
     replacementDueDate,
     status,
     notes,
+    material,
+    lifespanDays,
+    bagEmptyingIntervalHours,
+    lastBagEmptiedAt,
     createdAt,
     updatedAt,
   );
@@ -3697,6 +3867,10 @@ class CatheterEvent extends DataClass implements Insertable<CatheterEvent> {
           other.replacementDueDate == this.replacementDueDate &&
           other.status == this.status &&
           other.notes == this.notes &&
+          other.material == this.material &&
+          other.lifespanDays == this.lifespanDays &&
+          other.bagEmptyingIntervalHours == this.bagEmptyingIntervalHours &&
+          other.lastBagEmptiedAt == this.lastBagEmptiedAt &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -3709,6 +3883,10 @@ class CatheterEventsCompanion extends UpdateCompanion<CatheterEvent> {
   final Value<DateTime> replacementDueDate;
   final Value<String> status;
   final Value<String?> notes;
+  final Value<String> material;
+  final Value<int> lifespanDays;
+  final Value<int?> bagEmptyingIntervalHours;
+  final Value<DateTime?> lastBagEmptiedAt;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -3720,6 +3898,10 @@ class CatheterEventsCompanion extends UpdateCompanion<CatheterEvent> {
     this.replacementDueDate = const Value.absent(),
     this.status = const Value.absent(),
     this.notes = const Value.absent(),
+    this.material = const Value.absent(),
+    this.lifespanDays = const Value.absent(),
+    this.bagEmptyingIntervalHours = const Value.absent(),
+    this.lastBagEmptiedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -3732,6 +3914,10 @@ class CatheterEventsCompanion extends UpdateCompanion<CatheterEvent> {
     required DateTime replacementDueDate,
     required String status,
     this.notes = const Value.absent(),
+    this.material = const Value.absent(),
+    this.lifespanDays = const Value.absent(),
+    this.bagEmptyingIntervalHours = const Value.absent(),
+    this.lastBagEmptiedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -3748,6 +3934,10 @@ class CatheterEventsCompanion extends UpdateCompanion<CatheterEvent> {
     Expression<DateTime>? replacementDueDate,
     Expression<String>? status,
     Expression<String>? notes,
+    Expression<String>? material,
+    Expression<int>? lifespanDays,
+    Expression<int>? bagEmptyingIntervalHours,
+    Expression<DateTime>? lastBagEmptiedAt,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -3761,6 +3951,11 @@ class CatheterEventsCompanion extends UpdateCompanion<CatheterEvent> {
         'replacement_due_date': replacementDueDate,
       if (status != null) 'status': status,
       if (notes != null) 'notes': notes,
+      if (material != null) 'material': material,
+      if (lifespanDays != null) 'lifespan_days': lifespanDays,
+      if (bagEmptyingIntervalHours != null)
+        'bag_emptying_interval_hours': bagEmptyingIntervalHours,
+      if (lastBagEmptiedAt != null) 'last_bag_emptied_at': lastBagEmptiedAt,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -3775,6 +3970,10 @@ class CatheterEventsCompanion extends UpdateCompanion<CatheterEvent> {
     Value<DateTime>? replacementDueDate,
     Value<String>? status,
     Value<String?>? notes,
+    Value<String>? material,
+    Value<int>? lifespanDays,
+    Value<int?>? bagEmptyingIntervalHours,
+    Value<DateTime?>? lastBagEmptiedAt,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -3787,6 +3986,11 @@ class CatheterEventsCompanion extends UpdateCompanion<CatheterEvent> {
       replacementDueDate: replacementDueDate ?? this.replacementDueDate,
       status: status ?? this.status,
       notes: notes ?? this.notes,
+      material: material ?? this.material,
+      lifespanDays: lifespanDays ?? this.lifespanDays,
+      bagEmptyingIntervalHours:
+          bagEmptyingIntervalHours ?? this.bagEmptyingIntervalHours,
+      lastBagEmptiedAt: lastBagEmptiedAt ?? this.lastBagEmptiedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -3819,6 +4023,20 @@ class CatheterEventsCompanion extends UpdateCompanion<CatheterEvent> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (material.present) {
+      map['material'] = Variable<String>(material.value);
+    }
+    if (lifespanDays.present) {
+      map['lifespan_days'] = Variable<int>(lifespanDays.value);
+    }
+    if (bagEmptyingIntervalHours.present) {
+      map['bag_emptying_interval_hours'] = Variable<int>(
+        bagEmptyingIntervalHours.value,
+      );
+    }
+    if (lastBagEmptiedAt.present) {
+      map['last_bag_emptied_at'] = Variable<DateTime>(lastBagEmptiedAt.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -3841,6 +4059,10 @@ class CatheterEventsCompanion extends UpdateCompanion<CatheterEvent> {
           ..write('replacementDueDate: $replacementDueDate, ')
           ..write('status: $status, ')
           ..write('notes: $notes, ')
+          ..write('material: $material, ')
+          ..write('lifespanDays: $lifespanDays, ')
+          ..write('bagEmptyingIntervalHours: $bagEmptyingIntervalHours, ')
+          ..write('lastBagEmptiedAt: $lastBagEmptiedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -7415,6 +7637,10 @@ typedef $$CatheterEventsTableCreateCompanionBuilder =
       required DateTime replacementDueDate,
       required String status,
       Value<String?> notes,
+      Value<String> material,
+      Value<int> lifespanDays,
+      Value<int?> bagEmptyingIntervalHours,
+      Value<DateTime?> lastBagEmptiedAt,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -7428,6 +7654,10 @@ typedef $$CatheterEventsTableUpdateCompanionBuilder =
       Value<DateTime> replacementDueDate,
       Value<String> status,
       Value<String?> notes,
+      Value<String> material,
+      Value<int> lifespanDays,
+      Value<int?> bagEmptyingIntervalHours,
+      Value<DateTime?> lastBagEmptiedAt,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -7495,6 +7725,26 @@ class $$CatheterEventsTableFilterComposer
 
   ColumnFilters<String> get notes => $composableBuilder(
     column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get material => $composableBuilder(
+    column: $table.material,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lifespanDays => $composableBuilder(
+    column: $table.lifespanDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get bagEmptyingIntervalHours => $composableBuilder(
+    column: $table.bagEmptyingIntervalHours,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastBagEmptiedAt => $composableBuilder(
+    column: $table.lastBagEmptiedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7571,6 +7821,26 @@ class $$CatheterEventsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get material => $composableBuilder(
+    column: $table.material,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lifespanDays => $composableBuilder(
+    column: $table.lifespanDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get bagEmptyingIntervalHours => $composableBuilder(
+    column: $table.bagEmptyingIntervalHours,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastBagEmptiedAt => $composableBuilder(
+    column: $table.lastBagEmptiedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -7637,6 +7907,24 @@ class $$CatheterEventsTableAnnotationComposer
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get material =>
+      $composableBuilder(column: $table.material, builder: (column) => column);
+
+  GeneratedColumn<int> get lifespanDays => $composableBuilder(
+    column: $table.lifespanDays,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get bagEmptyingIntervalHours => $composableBuilder(
+    column: $table.bagEmptyingIntervalHours,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastBagEmptiedAt => $composableBuilder(
+    column: $table.lastBagEmptiedAt,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -7705,6 +7993,10 @@ class $$CatheterEventsTableTableManager
                 Value<DateTime> replacementDueDate = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String> material = const Value.absent(),
+                Value<int> lifespanDays = const Value.absent(),
+                Value<int?> bagEmptyingIntervalHours = const Value.absent(),
+                Value<DateTime?> lastBagEmptiedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -7716,6 +8008,10 @@ class $$CatheterEventsTableTableManager
                 replacementDueDate: replacementDueDate,
                 status: status,
                 notes: notes,
+                material: material,
+                lifespanDays: lifespanDays,
+                bagEmptyingIntervalHours: bagEmptyingIntervalHours,
+                lastBagEmptiedAt: lastBagEmptiedAt,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -7729,6 +8025,10 @@ class $$CatheterEventsTableTableManager
                 required DateTime replacementDueDate,
                 required String status,
                 Value<String?> notes = const Value.absent(),
+                Value<String> material = const Value.absent(),
+                Value<int> lifespanDays = const Value.absent(),
+                Value<int?> bagEmptyingIntervalHours = const Value.absent(),
+                Value<DateTime?> lastBagEmptiedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -7740,6 +8040,10 @@ class $$CatheterEventsTableTableManager
                 replacementDueDate: replacementDueDate,
                 status: status,
                 notes: notes,
+                material: material,
+                lifespanDays: lifespanDays,
+                bagEmptyingIntervalHours: bagEmptyingIntervalHours,
+                lastBagEmptiedAt: lastBagEmptiedAt,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
