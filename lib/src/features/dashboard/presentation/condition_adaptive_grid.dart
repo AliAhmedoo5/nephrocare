@@ -11,6 +11,8 @@ class ConditionAdaptiveGrid extends StatelessWidget {
   final void Function(ClinicalActionCard card)? onCardTap;
   final FluidBalanceSummary? fluidSummary;
   final CatheterLifespanSummary? catheterSummary;
+  final int? activeMedicationsCount;
+  final bool hasActiveDialysisSession;
 
   const ConditionAdaptiveGrid({
     super.key,
@@ -18,6 +20,8 @@ class ConditionAdaptiveGrid extends StatelessWidget {
     this.onCardTap,
     this.fluidSummary,
     this.catheterSummary,
+    this.activeMedicationsCount,
+    this.hasActiveDialysisSession = false,
   });
 
   @override
@@ -43,8 +47,9 @@ class ConditionAdaptiveGrid extends StatelessWidget {
             final card = cards[index];
             var effectiveCard = card;
 
+            // 1. Fluid balance progression dynamic subtitle
             if (fluidSummary != null) {
-              if (card.id == 'hd_fluid_hub' || card.title == 'Fluid Hub') {
+              if (card.id.contains('fluid_hub') || card.title == 'Fluid Hub') {
                 effectiveCard = ClinicalActionCard(
                   id: card.id,
                   title: card.title,
@@ -84,16 +89,49 @@ class ConditionAdaptiveGrid extends StatelessWidget {
               }
             }
 
-            if (catheterSummary != null && card.id == 'uro_catheter_lifespan') {
+            // 2. Catheter risk state dynamic subtitle
+            if (catheterSummary != null) {
+              if (card.id == 'uro_catheter_lifespan' ||
+                  card.title == 'Foley Catheter Lifespan' ||
+                  card.id == 'hd_catheter_access' ||
+                  card.title == 'Catheter & Access Monitor') {
+                effectiveCard = ClinicalActionCard(
+                  id: card.id,
+                  title: card.title,
+                  subtitle: 'Day ${catheterSummary!.dayOfCycle} of ${catheterSummary!.totalLifespanDays} • ${catheterSummary!.statusTitle}',
+                  icon: card.icon,
+                  semanticLabel: '${card.semanticLabel}: Day ${catheterSummary!.dayOfCycle} of ${catheterSummary!.totalLifespanDays}, ${catheterSummary!.statusTitle}',
+                  accentColor: catheterSummary!.statusColor,
+                );
+              }
+            }
+
+            // 3. Active medications count dynamic subtitle
+            if (activeMedicationsCount != null && (card.id.contains('medication') || card.title == 'Medication Management')) {
               effectiveCard = ClinicalActionCard(
                 id: card.id,
                 title: card.title,
-                subtitle: 'Day ${catheterSummary!.dayOfCycle} of ${catheterSummary!.totalLifespanDays} • ${catheterSummary!.statusTitle}',
+                subtitle: activeMedicationsCount! > 0
+                    ? '$activeMedicationsCount active medication${activeMedicationsCount == 1 ? '' : 's'} & binders'
+                    : 'Regimen, phosphate binders & 1-tap doses',
                 icon: card.icon,
-                semanticLabel: card.semanticLabel,
-                accentColor: catheterSummary!.statusColor,
+                semanticLabel: '${card.semanticLabel}: $activeMedicationsCount active medications',
+                accentColor: card.accentColor,
               );
             }
+
+            // 4. Active dialysis session dynamic subtitle
+            if (hasActiveDialysisSession && (card.id == 'hd_dialysis_session' || card.title == 'Unified Dialysis Session')) {
+              effectiveCard = ClinicalActionCard(
+                id: card.id,
+                title: card.title,
+                subtitle: 'Session in progress • Tap to resume/checkout',
+                icon: card.icon,
+                semanticLabel: '${card.semanticLabel}: Session currently in progress',
+                accentColor: theme.colorScheme.primary,
+              );
+            }
+
             return _ClinicalActionGridCard(
               card: effectiveCard,
               theme: theme,

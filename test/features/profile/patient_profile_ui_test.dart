@@ -103,11 +103,11 @@ void main() {
       expect(find.textContaining('Left Arm'), findsOneWidget);
 
       // Verify exactly six clinical action cards for Hemodialysis
-      expect(find.text('Check-in'), findsOneWidget);
-      expect(find.text('Post-Dialysis Log'), findsOneWidget);
-      expect(find.text('Blood Pressure'), findsOneWidget);
+      expect(find.text('Unified Dialysis Session'), findsOneWidget);
+      expect(find.text('Blood Pressure & Paired BP'), findsOneWidget);
       expect(find.text('Fluid Hub'), findsOneWidget);
-      expect(find.text('Medication & Binders'), findsOneWidget);
+      expect(find.text('Medication Management'), findsOneWidget);
+      expect(find.text('Catheter & Access Monitor'), findsOneWidget);
       expect(find.text('Modular Clinical Report'), findsOneWidget);
     });
 
@@ -130,10 +130,10 @@ void main() {
       expect(find.text('Marcus Chen'), findsOneWidget);
       expect(find.text('Exchange Log'), findsOneWidget);
       expect(find.text('Exit-Site Inspection'), findsOneWidget);
-      expect(find.text('Daily Weight & Dry Weight'), findsOneWidget);
+      expect(find.text('Daily Weight'), findsOneWidget);
       expect(find.text('Blood Pressure'), findsOneWidget);
-      expect(find.text('24h Fluid Balance'), findsOneWidget);
-      expect(find.text('Modular Clinical Report'), findsOneWidget);
+      expect(find.text('Fluid Hub'), findsOneWidget);
+      expect(find.text('Medication Management'), findsOneWidget);
 
       // 2. Reactively switch condition to Non-Dialysis CKD
       final repository = PatientRepository(harness.database);
@@ -148,10 +148,10 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify reactively updated 6 Non-Dialysis CKD cards
-      expect(find.text('Blood Pressure'), findsOneWidget);
+      expect(find.text('Blood Pressure & Paired BP'), findsOneWidget);
       expect(find.text('Daily Weight'), findsOneWidget);
-      expect(find.text('Fluid Allowance Tracker'), findsOneWidget);
-      expect(find.text('Medication & Binders'), findsOneWidget);
+      expect(find.text('Fluid Hub'), findsOneWidget);
+      expect(find.text('Medication Management'), findsOneWidget);
       expect(find.text('Symptom Log'), findsOneWidget);
       expect(find.text('Modular Clinical Report'), findsOneWidget);
 
@@ -167,8 +167,8 @@ void main() {
 
       // Verify reactively updated 6 Urological / Catheter cards
       expect(find.text('Foley Catheter Lifespan'), findsOneWidget);
-      expect(find.text('Urine Evacuation'), findsOneWidget);
-      expect(find.text('Fluid Intake'), findsOneWidget);
+      expect(find.text('Fluid Hub'), findsOneWidget);
+      expect(find.text('Medication Management'), findsOneWidget);
       expect(find.text('Blood Pressure'), findsOneWidget);
       expect(find.text('Symptom Log'), findsOneWidget);
       expect(find.text('Modular Clinical Report'), findsOneWidget);
@@ -247,8 +247,8 @@ void main() {
       expect(find.text('Eleanor Vance'), findsOneWidget);
       expect(find.text('Hemodialysis'), findsOneWidget);
       expect(find.byKey(const Key('caregiver_mirror_badge')), findsNothing);
-      expect(find.text('Check-in'), findsOneWidget);
-      expect(find.text('Post-Dialysis Log'), findsOneWidget);
+      expect(find.text('Unified Dialysis Session'), findsOneWidget);
+      expect(find.text('Blood Pressure & Paired BP'), findsOneWidget);
 
       // 2. Open Profile Management screen from Dashboard AppBar
       final manageProfilesBtn = find.byKey(const Key('manage_profiles_button'));
@@ -277,9 +277,9 @@ void main() {
 
       // Verify Urological Catheter clinical action cards
       expect(find.text('Foley Catheter Lifespan'), findsOneWidget);
-      expect(find.text('Urine Evacuation'), findsOneWidget);
-      expect(find.text('Fluid Intake'), findsOneWidget);
-      expect(find.text('Check-in'), findsNothing); // Hemodialysis check-in gone!
+      expect(find.text('Fluid Hub'), findsOneWidget);
+      expect(find.text('Medication Management'), findsOneWidget);
+      expect(find.text('Unified Dialysis Session'), findsNothing); // Hemodialysis session gone!
     });
 
     testWidgets('Profile setup and editing permit selection of Non-Tunneled Temporary Dialysis Lines with neck and thigh/groin locations',

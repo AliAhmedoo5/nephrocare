@@ -130,11 +130,11 @@ void main() {
       expect(cards.length, equals(6));
 
       final titles = cards.map((c) => c.title).toList();
-      expect(titles, contains('Check-in'));
-      expect(titles, contains('Post-Dialysis Log'));
-      expect(titles, contains('Blood Pressure'));
+      expect(titles, contains('Unified Dialysis Session'));
+      expect(titles, contains('Blood Pressure & Paired BP'));
       expect(titles, contains('Fluid Hub'));
-      expect(titles, contains('Medication & Binders'));
+      expect(titles, contains('Medication Management'));
+      expect(titles, contains('Catheter & Access Monitor'));
       expect(titles, contains('Modular Clinical Report'));
     });
 
@@ -145,10 +145,10 @@ void main() {
       final titles = cards.map((c) => c.title).toList();
       expect(titles, contains('Exchange Log'));
       expect(titles, contains('Exit-Site Inspection'));
-      expect(titles, contains('Daily Weight & Dry Weight'));
+      expect(titles, contains('Daily Weight'));
       expect(titles, contains('Blood Pressure'));
-      expect(titles, contains('24h Fluid Balance'));
-      expect(titles, contains('Modular Clinical Report'));
+      expect(titles, contains('Fluid Hub'));
+      expect(titles, contains('Medication Management'));
     });
 
     test('Non-Dialysis CKD condition maps to exactly 6 clinical action cards', () {
@@ -156,10 +156,10 @@ void main() {
       expect(cards.length, equals(6));
 
       final titles = cards.map((c) => c.title).toList();
-      expect(titles, contains('Blood Pressure'));
+      expect(titles, contains('Blood Pressure & Paired BP'));
       expect(titles, contains('Daily Weight'));
-      expect(titles, contains('Fluid Allowance Tracker'));
-      expect(titles, contains('Medication & Binders'));
+      expect(titles, contains('Fluid Hub'));
+      expect(titles, contains('Medication Management'));
       expect(titles, contains('Symptom Log'));
       expect(titles, contains('Modular Clinical Report'));
     });
@@ -170,8 +170,8 @@ void main() {
 
       final titles = cards.map((c) => c.title).toList();
       expect(titles, contains('Foley Catheter Lifespan'));
-      expect(titles, contains('Urine Evacuation'));
-      expect(titles, contains('Fluid Intake'));
+      expect(titles, contains('Fluid Hub'));
+      expect(titles, contains('Medication Management'));
       expect(titles, contains('Blood Pressure'));
       expect(titles, contains('Symptom Log'));
       expect(titles, contains('Modular Clinical Report'));

@@ -51,7 +51,7 @@ void main() {
     expect(find.text('NephroCare'), findsOneWidget);
     expect(find.text('Sarah Jenkins'), findsOneWidget);
     expect(find.text('Hemodialysis'), findsOneWidget);
-    expect(find.text('Check-in'), findsOneWidget);
+    expect(find.text('Unified Dialysis Session'), findsOneWidget);
 
     await harness.dispose();
   });

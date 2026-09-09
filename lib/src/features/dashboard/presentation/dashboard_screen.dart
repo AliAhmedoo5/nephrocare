@@ -495,8 +495,41 @@ class DashboardScreen extends ConsumerWidget {
                 conditionName: patient.diagnosis,
                 fluidSummary: fluidSummary,
                 catheterSummary: catheterSummary,
+                activeMedicationsCount: activeMeds.length,
+                hasActiveDialysisSession: activeSession != null,
                 onCardTap: (card) {
-                  if (card.title == 'Blood Pressure' || card.id.contains('blood_pressure')) {
+                  if (card.title == 'Unified Dialysis Session' ||
+                      card.id == 'hd_dialysis_session' ||
+                      card.id == 'hd_check_in' ||
+                      card.title == 'Check-in') {
+                    if (activeSession != null) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => HemodialysisPostSessionScreen(
+                            patient: patient,
+                            existingSession: activeSession,
+                          ),
+                        ),
+                      );
+                    } else {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => HemodialysisCheckInScreen(
+                            patient: patient,
+                          ),
+                        ),
+                      );
+                    }
+                  } else if (card.id == 'hd_post_dialysis' || card.title == 'Post-Dialysis Log') {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => HemodialysisPostSessionScreen(
+                          patient: patient,
+                          existingSession: activeSession,
+                        ),
+                      ),
+                    );
+                  } else if (card.title.contains('Blood Pressure') || card.id.contains('blood_pressure')) {
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (context) => BloodPressureEntryScreen(
@@ -504,18 +537,14 @@ class DashboardScreen extends ConsumerWidget {
                         ),
                       ),
                     );
-                  } else if (card.id == 'hd_check_in' || card.title == 'Check-in') {
+                  } else if (card.id == 'hd_catheter_access' ||
+                      card.title == 'Catheter & Access Monitor' ||
+                      card.id == 'pd_exit_site' ||
+                      card.title.contains('Exit-Site') ||
+                      card.title.contains('Access Inspection')) {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => HemodialysisCheckInScreen(
-                          patient: patient,
-                        ),
-                      ),
-                    );
-                  } else if (card.id == 'hd_post_dialysis' || card.title == 'Post-Dialysis Log') {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => HemodialysisPostSessionScreen(
+                        builder: (context) => AccessInspectionHistoryScreen(
                           patient: patient,
                         ),
                       ),
@@ -530,12 +559,10 @@ class DashboardScreen extends ConsumerWidget {
                         ),
                       ),
                     );
-                  } else if (card.id == 'ckd_medication_binders' ||
-                      card.id.contains('medication') ||
+                  } else if (card.id.contains('medication') ||
                       card.title.contains('Medication')) {
                     _openMedicationScreen(context);
-                  } else if (card.id == 'hd_fluid_hub' ||
-                      card.id.contains('fluid_hub') ||
+                  } else if (card.id.contains('fluid_hub') ||
                       card.title == 'Fluid Hub' ||
                       card.title.contains('Fluid Hub')) {
                     Navigator.of(context).push(
@@ -574,16 +601,6 @@ class DashboardScreen extends ConsumerWidget {
                       card.title.contains('Modular Clinical Report') ||
                       card.title.contains('Clinical Report')) {
                     _openModularClinicalReport(context);
-                  } else if (card.id == 'pd_exit_site' ||
-                      card.title.contains('Exit-Site') ||
-                      card.title.contains('Access Inspection')) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => AccessInspectionHistoryScreen(
-                          patient: patient,
-                        ),
-                      ),
-                    );
                   } else if (card.id == 'pd_daily_weight' ||
                       card.id == 'ckd_daily_weight' ||
                       card.title.contains('Daily Weight') ||

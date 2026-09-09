@@ -281,10 +281,10 @@ void main() {
 
         // Dashboard is rendered with 6 cards
         expect(find.text('NephroCare'), findsOneWidget);
-        expect(find.text('Blood Pressure'), findsOneWidget);
+        expect(find.text('Blood Pressure & Paired BP'), findsOneWidget);
 
         // Tap the Blood Pressure card
-        await tester.tap(find.text('Blood Pressure'));
+        await tester.tap(find.text('Blood Pressure & Paired BP'));
         await tester.pumpAndSettle();
 
         // Should navigate to BloodPressureEntryScreen

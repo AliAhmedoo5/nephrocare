@@ -444,9 +444,9 @@ void main() {
 
 
     testWidgets(
-      'Dashboard cards Check-in and Post-Dialysis Log navigate to respective screens',
+      'Dashboard card Unified Dialysis Session navigates to check-in when inactive and post-session when in progress',
       (WidgetTester tester) async {
-        await harness.createPatient(
+        final patient = await harness.createPatient(
           name: 'Fox Mulder',
           diagnosis: ClinicalCondition.hemodialysis.name,
           prescribedDryWeightKg: 74.0,
@@ -457,9 +457,9 @@ void main() {
         await tester.pumpWidget(createTestApp());
         await tester.pumpAndSettle();
 
-        // 1. Tap Check-in card
-        expect(find.text('Check-in'), findsOneWidget);
-        await tester.tap(find.text('Check-in'));
+        // 1. Tap Unified Dialysis Session card when inactive -> HemodialysisCheckInScreen
+        expect(find.text('Unified Dialysis Session'), findsOneWidget);
+        await tester.tap(find.text('Unified Dialysis Session'));
         await tester.pumpAndSettle();
 
         expect(find.text('Hemodialysis Check-In'), findsOneWidget);
@@ -469,9 +469,17 @@ void main() {
         Navigator.of(tester.element(find.text('Hemodialysis Check-In'))).pop();
         await tester.pumpAndSettle();
 
-        // 2. Tap Post-Dialysis Log card
-        expect(find.text('Post-Dialysis Log'), findsOneWidget);
-        await tester.tap(find.text('Post-Dialysis Log'));
+        // 2. Start an in-progress session
+        await harness.recordPreDialysisCheckIn(
+          patientId: patient.id,
+          preWeightKg: 75.5,
+          volumeAllowanceMl: 250,
+        );
+        await tester.pumpAndSettle();
+
+        // Tap Unified Dialysis Session card -> HemodialysisPostSessionScreen
+        await tester.ensureVisible(find.text('Unified Dialysis Session'));
+        await tester.tap(find.text('Unified Dialysis Session'));
         await tester.pumpAndSettle();
 
         expect(find.text('Post-Dialysis Session Log'), findsOneWidget);
