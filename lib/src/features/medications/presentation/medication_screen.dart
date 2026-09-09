@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../blood_pressure/presentation/paired_bp_dialogs.dart';
 import '../../profile/data/patient_repository.dart';
 import '../data/medication_repository.dart';
 
@@ -21,7 +22,7 @@ class MedicationScreen extends ConsumerStatefulWidget {
 class _MedicationScreenState extends ConsumerState<MedicationScreen> {
   Future<void> _record1TapAdministration(Patient patient, Medication med) async {
     try {
-      await ref.read(medicationRepositoryProvider).recordAdministration(
+      final admin = await ref.read(medicationRepositoryProvider).recordAdministration(
             patientId: patient.id,
             medicationId: med.id,
           );
@@ -34,6 +35,17 @@ class _MedicationScreenState extends ConsumerState<MedicationScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
+
+        if (med.isAntiHypertensive) {
+          await showBaselineBpPromptDialog(
+            context: context,
+            ref: ref,
+            patient: patient,
+            administration: admin,
+            medicationName: med.name,
+            dosage: med.dosage,
+          );
+        }
       }
     } catch (e) {
       if (mounted) {

@@ -59,6 +59,17 @@ class BloodPressureLogs extends Table {
   TextColumn get armUsed => text()(); // leftArm, rightArm
   BoolColumn get isSafeArm => boolean().withDefault(const Constant(true))();
   DateTimeColumn get recordedAt => dateTime()();
+
+  // Paired Anti-Hypertensive Assessment Metadata per ADR-0005 & Issue #16
+  BoolColumn get isPairedAssessment => boolean().withDefault(const Constant(false))();
+  TextColumn get pairedRole => text().nullable()(); // 'baseline', 'followUp'
+  TextColumn get pairedAssessmentId => text().nullable()();
+  TextColumn get medicationAdministrationId => text().nullable()();
+  IntColumn get elapsedMinutes => integer().nullable()();
+  IntColumn get systolicDelta => integer().nullable()();
+  IntColumn get diastolicDelta => integer().nullable()();
+  IntColumn get pulseDelta => integer().nullable()();
+
   DateTimeColumn get createdAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
   DateTimeColumn get updatedAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
 

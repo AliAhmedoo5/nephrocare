@@ -271,5 +271,128 @@ void main() {
       expect(trends[1].systolic, equals(125));
       expect(trends[2].systolic, equals(130));
     });
+
+    test('Paired Anti-Hypertensive BP Assessment: Baseline and Follow-Up with deltas and alarm scheduling', () async {
+      final patient = await harness.createPatient(
+        name: 'Hypertensive Patient',
+        diagnosis: ClinicalCondition.hemodialysis.name,
+        vascularAccessType: VascularAccessType.arteriovenousFistula.name,
+        fistulaArmLocation: AccessLocation.leftArm.name,
+      );
+
+      final med = await harness.createMedication(
+        patientId: patient.id,
+        name: 'Amlodipine',
+        dosage: '10 mg',
+        frequency: 'Daily',
+        isAntiHypertensive: true,
+      );
+
+      final admin = await harness.recordMedicationAdministration(
+        patientId: patient.id,
+        medicationId: med.id,
+      );
+
+      // 1. Enforces Fistula Arm Safety Flag lockout on baseline measurement
+      expect(
+        () => repository.recordBaselineBloodPressure(
+          patientId: patient.id,
+          medicationAdministrationId: admin.id,
+          medicationName: med.name,
+          systolic: 165,
+          diastolic: 100,
+          pulse: 84,
+          armUsed: 'leftArm', // Prohibited arm!
+        ),
+        throwsA(isA<FistulaArmSafetyException>()),
+      );
+
+      // 2. Records baseline on verified safe arm (rightArm)
+      final baselineTime = DateTime.utc(2026, 9, 9, 10, 0, 0);
+      final baseline = await repository.recordBaselineBloodPressure(
+        patientId: patient.id,
+        medicationAdministrationId: admin.id,
+        medicationName: med.name,
+        systolic: 165,
+        diastolic: 100,
+        pulse: 84,
+        armUsed: 'rightArm',
+        onsetWindowMinutes: 30,
+        recordedAt: baselineTime,
+      );
+
+      expect(baseline.id, isNotEmpty);
+      expect(baseline.isPairedAssessment, isTrue);
+      expect(baseline.pairedRole, equals('baseline'));
+      expect(baseline.pairedAssessmentId, isNotNull);
+      expect(baseline.medicationAdministrationId, equals(admin.id));
+      expect(baseline.systolic, equals(165));
+      expect(baseline.diastolic, equals(100));
+      expect(baseline.pulse, equals(84));
+      expect(baseline.elapsedMinutes, isNull);
+      expect(baseline.systolicDelta, isNull);
+
+      // Verify alarm is scheduled for 30 minutes post-dose
+      final alarmService = repository.alarmService;
+      final alarm = alarmService.getAlarmForAssessment(baseline.pairedAssessmentId!);
+      expect(alarm, isNotNull);
+      expect(alarm!.intervalMinutes, equals(30));
+      expect(alarm.scheduledFor, equals(baselineTime.add(const Duration(minutes: 30))));
+      expect(alarm.medicationName, equals('Amlodipine'));
+
+      // 3. Pending follow-ups query returns the pending baseline
+      final pendingList = await repository.getPendingFollowUpAssessments(patient.id);
+      expect(pendingList.length, equals(1));
+      expect(pendingList.first.id, equals(baseline.id));
+
+      // 4. Record follow-up measurement at 32 minutes post-dose
+      final followUpTime = baselineTime.add(const Duration(minutes: 32));
+      final followUp = await repository.recordFollowUpBloodPressure(
+        patientId: patient.id,
+        pairedAssessmentId: baseline.pairedAssessmentId!,
+        systolic: 135,
+        diastolic: 82,
+        pulse: 76,
+        armUsed: 'rightArm',
+        recordedAt: followUpTime,
+      );
+
+      expect(followUp.id, isNotEmpty);
+      expect(followUp.isPairedAssessment, isTrue);
+      expect(followUp.pairedRole, equals('followUp'));
+      expect(followUp.pairedAssessmentId, equals(baseline.pairedAssessmentId));
+      expect(followUp.medicationAdministrationId, equals(admin.id));
+      expect(followUp.systolic, equals(135));
+      expect(followUp.diastolic, equals(82));
+      expect(followUp.pulse, equals(76));
+
+      // Verify calculated exact elapsed minutes and hemodynamic deltas
+      expect(followUp.elapsedMinutes, equals(32));
+      expect(followUp.systolicDelta, equals(-30)); // 135 - 165 = -30
+      expect(followUp.diastolicDelta, equals(-18)); // 82 - 100 = -18
+      expect(followUp.pulseDelta, equals(-8)); // 76 - 84 = -8
+
+      // Verify alarm was marked completed/cancelled
+      final alarmAfterFollowUp = alarmService.getAlarmForAssessment(baseline.pairedAssessmentId!);
+      expect(alarmAfterFollowUp, isNull);
+
+      // Verify pending follow-up list is now empty
+      final pendingAfter = await repository.getPendingFollowUpAssessments(patient.id);
+      expect(pendingAfter, isEmpty);
+
+      // 5. Query paired assessments
+      final pairedList = await repository.getPairedAssessments(patient.id);
+      expect(pairedList.length, equals(1));
+      expect(pairedList.first.baseline.id, equals(baseline.id));
+      expect(pairedList.first.followUp?.id, equals(followUp.id));
+      expect(pairedList.first.elapsedMinutes, equals(32));
+      expect(pairedList.first.systolicDelta, equals(-30));
+
+      // 6. Query paired assessment by medication administration ID
+      final byAdmin = await repository.getPairedAssessmentForAdministration(admin.id);
+      expect(byAdmin, isNotNull);
+      expect(byAdmin!.baseline.id, equals(baseline.id));
+      expect(byAdmin.followUp?.id, equals(followUp.id));
+    });
   });
 }

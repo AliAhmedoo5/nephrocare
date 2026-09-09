@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nephrocare/main.dart';
 import 'package:nephrocare/src/core/database/database_provider.dart';
 import 'package:nephrocare/src/core/testing/test_harness.dart';
+import 'package:nephrocare/src/features/blood_pressure/domain/paired_bp_alarm_service.dart';
 import 'package:nephrocare/src/features/blood_pressure/presentation/blood_pressure_entry_screen.dart';
 import 'package:nephrocare/src/features/profile/domain/clinical_condition.dart';
 
@@ -23,6 +24,7 @@ void main() {
       return ProviderScope(
         overrides: [
           databaseProvider.overrideWithValue(harness.database),
+          pairedBpAlarmServiceProvider.overrideWithValue(harness.pairedBpAlarmService),
         ],
         child: MaterialApp(
           home: home ?? const NephroCareHomePage(),
@@ -288,6 +290,152 @@ void main() {
         // Should navigate to BloodPressureEntryScreen
         expect(find.byKey(const Key('fistula_arm_safety_banner')), findsOneWidget);
         expect(find.byKey(const Key('save_bp_button')), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'BloodPressureEntryScreen renders pending follow-up banner and allows logging follow-up measurement pre-populated with baseline reference values',
+      (WidgetTester tester) async {
+        final patient = await harness.createPatient(
+          name: 'Sarah Paired',
+          diagnosis: ClinicalCondition.hemodialysis.name,
+          vascularAccessType: VascularAccessType.arteriovenousFistula.name,
+          fistulaArmLocation: AccessLocation.leftArm.name,
+        );
+
+        final med = await harness.createMedication(
+          patientId: patient.id,
+          name: 'Amlodipine',
+          dosage: '10 mg',
+          frequency: 'Daily',
+          isAntiHypertensive: true,
+        );
+
+        final admin = await harness.recordMedicationAdministration(
+          patientId: patient.id,
+          medicationId: med.id,
+        );
+
+        final baseline = await harness.recordBaselineBloodPressure(
+          patientId: patient.id,
+          medicationAdministrationId: admin.id,
+          medicationName: med.name,
+          systolic: 162,
+          diastolic: 100,
+          pulse: 82,
+          armUsed: 'rightArm',
+        );
+
+        await tester.pumpWidget(
+          createTestApp(
+            home: BloodPressureEntryScreen(patient: patient),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Verify pending follow-up banner is rendered
+        expect(find.byKey(const Key('pending_followup_banner')), findsOneWidget);
+        expect(find.textContaining('Follow-Up BP Measurement Due'), findsOneWidget);
+        expect(find.textContaining('162/100 mmHg'), findsWidgets);
+
+        // Tap log follow-up measurement
+        final followUpBtn = find.byKey(const Key('entry_log_paired_followup_button'));
+        expect(followUpBtn, findsOneWidget);
+        await tester.tap(followUpBtn);
+        await tester.pumpAndSettle();
+
+        // Verify follow-up prompt dialog opened pre-populated with baseline reference values
+        expect(find.text('Follow-Up Blood Pressure'), findsOneWidget);
+        expect(find.text('Baseline Reference Values'), findsOneWidget);
+        expect(find.textContaining('162/100 mmHg'), findsWidgets);
+
+        // Enter follow-up values
+        await tester.enterText(find.byKey(const Key('paired_followup_systolic_input')), '132');
+        await tester.enterText(find.byKey(const Key('paired_followup_diastolic_input')), '82');
+        await tester.enterText(find.byKey(const Key('paired_followup_pulse_input')), '74');
+
+        await tester.tap(find.byKey(const Key('save_paired_followup_button')));
+        await tester.pumpAndSettle();
+
+        // Verify pending banner disappears
+        expect(find.byKey(const Key('pending_followup_banner')), findsNothing);
+
+        // Verify trends list displays Follow-Up badge and calculated hemodynamic deltas
+        expect(find.textContaining('Follow-Up'), findsWidgets);
+        expect(find.textContaining('Hemodynamic Delta: -30/-18 mmHg'), findsOneWidget);
+
+        // Verify repository stores deltas
+        final pairedAssessments = await harness.getPairedAssessments(patient.id);
+        expect(pairedAssessments.length, equals(1));
+        final pair = pairedAssessments.first;
+        expect(pair.baseline.id, equals(baseline.id));
+        expect(pair.isCompleted, isTrue);
+        expect(pair.systolicDelta, equals(-30));
+        expect(pair.diastolicDelta, equals(-18));
+      },
+    );
+
+    testWidgets(
+      'DashboardScreen displays paired follow-up alert card when anti-hypertensive follow-up is due',
+      (WidgetTester tester) async {
+        final patient = await harness.createPatient(
+          name: 'Dashboard Paired Patient',
+          diagnosis: ClinicalCondition.hemodialysis.name,
+          vascularAccessType: VascularAccessType.arteriovenousFistula.name,
+          fistulaArmLocation: AccessLocation.leftArm.name,
+        );
+
+        final med = await harness.createMedication(
+          patientId: patient.id,
+          name: 'Lisinopril',
+          dosage: '20 mg',
+          frequency: 'Daily',
+          isAntiHypertensive: true,
+        );
+
+        final admin = await harness.recordMedicationAdministration(
+          patientId: patient.id,
+          medicationId: med.id,
+        );
+
+        await harness.recordBaselineBloodPressure(
+          patientId: patient.id,
+          medicationAdministrationId: admin.id,
+          medicationName: med.name,
+          systolic: 170,
+          diastolic: 104,
+          pulse: 88,
+          armUsed: 'rightArm',
+        );
+
+        await tester.pumpWidget(
+          createTestApp(),
+        );
+        await tester.pumpAndSettle();
+
+        // Verify dashboard alert card is visible
+        expect(find.byKey(const Key('dashboard_paired_bp_alert_card')), findsOneWidget);
+        expect(find.text('Follow-Up Blood Pressure Due'), findsOneWidget);
+        expect(find.textContaining('170/104 mmHg'), findsWidgets);
+
+        // Tap action on dashboard alert card
+        final logBtn = find.byKey(const Key('dashboard_log_paired_followup_button'));
+        expect(logBtn, findsOneWidget);
+        await tester.tap(logBtn);
+        await tester.pumpAndSettle();
+
+        // Verify dialog opens
+        expect(find.text('Follow-Up Blood Pressure'), findsOneWidget);
+
+        await tester.enterText(find.byKey(const Key('paired_followup_systolic_input')), '138');
+        await tester.enterText(find.byKey(const Key('paired_followup_diastolic_input')), '84');
+        await tester.enterText(find.byKey(const Key('paired_followup_pulse_input')), '78');
+
+        await tester.tap(find.byKey(const Key('save_paired_followup_button')));
+        await tester.pumpAndSettle();
+
+        // Verify dashboard alert card is dismissed after follow-up
+        expect(find.byKey(const Key('dashboard_paired_bp_alert_card')), findsNothing);
       },
     );
   });

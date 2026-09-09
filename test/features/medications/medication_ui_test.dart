@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nephrocare/src/core/database/app_database.dart';
 import 'package:nephrocare/src/core/database/database_provider.dart';
 import 'package:nephrocare/src/core/testing/test_harness.dart';
+import 'package:nephrocare/src/features/blood_pressure/domain/paired_bp_alarm_service.dart';
 import 'package:nephrocare/src/features/dashboard/presentation/dashboard_screen.dart';
 import 'package:nephrocare/src/features/fluid/presentation/fluid_intake_entry_screen.dart';
 import 'package:nephrocare/src/features/medications/presentation/medication_screen.dart';
@@ -31,6 +32,7 @@ void main() {
       return ProviderScope(
         overrides: [
           databaseProvider.overrideWithValue(harness.database),
+          pairedBpAlarmServiceProvider.overrideWithValue(harness.pairedBpAlarmService),
         ],
         child: MaterialApp(
           home: child,
@@ -207,6 +209,65 @@ void main() {
       expect(admins.length, equals(1));
       expect(admins.first.medicationId, equals(binder.id));
       expect(admins.first.isPhosphateBinder, isTrue);
+    });
+
+    testWidgets('MedicationScreen prompts immediate baseline blood pressure measurement when anti-hypertensive medication is administered', (tester) async {
+      // Setup patient with Left Arm fistula
+      final fistulaPatient = await harness.createPatient(
+        name: 'Fistula Patient',
+        diagnosis: 'hemodialysis',
+        fistulaArmLocation: 'leftArm',
+        vascularAccessType: 'arteriovenousFistula',
+      );
+
+      final antiHyp = await harness.createMedication(
+        patientId: fistulaPatient.id,
+        name: 'Lisinopril',
+        dosage: '20 mg',
+        frequency: 'Daily morning',
+        isAntiHypertensive: true,
+      );
+
+      await tester.pumpWidget(createTestableWidget(MedicationScreen(patient: fistulaPatient)));
+      await tester.pumpAndSettle();
+
+      final takeBtn = find.byKey(Key('take_medication_${antiHyp.id}'));
+      expect(takeBtn, findsOneWidget);
+
+      await tester.tap(takeBtn);
+      await tester.pumpAndSettle();
+
+      // Verify baseline prompt dialog appeared
+      expect(find.text('Baseline Blood Pressure'), findsOneWidget);
+      expect(find.textContaining('Lisinopril (20 mg)'), findsWidgets);
+
+      // Verify left arm is locked out, right arm is selected
+      expect(find.byKey(const Key('paired_baseline_arm_left')), findsOneWidget);
+      expect(find.text('Left (Locked)'), findsOneWidget);
+
+      // Enter baseline BP
+      await tester.enterText(find.byKey(const Key('paired_baseline_systolic_input')), '164');
+      await tester.enterText(find.byKey(const Key('paired_baseline_diastolic_input')), '98');
+      await tester.enterText(find.byKey(const Key('paired_baseline_pulse_input')), '80');
+
+      await tester.tap(find.byKey(const Key('save_paired_baseline_button')));
+      await tester.pumpAndSettle();
+
+      // Verify baseline was recorded in repository
+      final bpLogs = await harness.getBloodPressureLogs(fistulaPatient.id);
+      expect(bpLogs.length, equals(1));
+      final baseline = bpLogs.first;
+      expect(baseline.isPairedAssessment, isTrue);
+      expect(baseline.pairedRole, equals('baseline'));
+      expect(baseline.systolic, equals(164));
+      expect(baseline.diastolic, equals(98));
+      expect(baseline.pulse, equals(80));
+      expect(baseline.armUsed, equals('rightArm'));
+
+      // Verify alarm scheduled
+      final alarm = harness.pairedBpAlarmService.getAlarmForAssessment(baseline.pairedAssessmentId!);
+      expect(alarm, isNotNull);
+      expect(alarm!.intervalMinutes, equals(30));
     });
   });
 }

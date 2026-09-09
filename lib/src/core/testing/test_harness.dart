@@ -9,6 +9,9 @@ import 'package:uuid/uuid.dart';
 import '../database/app_database.dart';
 import '../database/database_provider.dart';
 import '../../features/blood_pressure/data/blood_pressure_repository.dart';
+import '../../features/blood_pressure/domain/paired_bp_alarm_service.dart';
+import '../../features/blood_pressure/domain/paired_bp_assessment.dart';
+import '../../features/blood_pressure/domain/paired_bp_assessment_rules.dart';
 import '../../features/catheter/data/catheter_repository.dart';
 import '../../features/catheter/domain/catheter_lifespan_rules.dart';
 import '../../features/dialysis/data/dialysis_session_repository.dart';
@@ -282,6 +285,81 @@ class NephroTestHarness {
 
   /// Alias for [getBloodPressureLogs].
   Future<List<BloodPressureLog>> getHemodynamicTrends(String patientId) => getBloodPressureLogs(patientId);
+
+  /// Clinical helper to log Baseline Blood Pressure for paired anti-hypertensive assessment.
+  Future<BloodPressureLog> recordBaselineBloodPressure({
+    String? id,
+    required String patientId,
+    required String medicationAdministrationId,
+    required String medicationName,
+    required int systolic,
+    required int diastolic,
+    required int pulse,
+    required String armUsed,
+    String? pairedAssessmentId,
+    int onsetWindowMinutes = PairedBpAssessmentRules.defaultOnsetWindowMinutes,
+    DateTime? recordedAt,
+  }) async {
+    final repository = BloodPressureRepository(database, container.read(pairedBpAlarmServiceProvider));
+    return repository.recordBaselineBloodPressure(
+      id: id,
+      patientId: patientId,
+      medicationAdministrationId: medicationAdministrationId,
+      medicationName: medicationName,
+      systolic: systolic,
+      diastolic: diastolic,
+      pulse: pulse,
+      armUsed: armUsed,
+      pairedAssessmentId: pairedAssessmentId,
+      onsetWindowMinutes: onsetWindowMinutes,
+      recordedAt: recordedAt,
+    );
+  }
+
+  /// Clinical helper to log Follow-Up Blood Pressure for paired anti-hypertensive assessment.
+  Future<BloodPressureLog> recordFollowUpBloodPressure({
+    String? id,
+    required String patientId,
+    required String pairedAssessmentId,
+    required int systolic,
+    required int diastolic,
+    required int pulse,
+    required String armUsed,
+    DateTime? recordedAt,
+  }) async {
+    final repository = BloodPressureRepository(database, container.read(pairedBpAlarmServiceProvider));
+    return repository.recordFollowUpBloodPressure(
+      id: id,
+      patientId: patientId,
+      pairedAssessmentId: pairedAssessmentId,
+      systolic: systolic,
+      diastolic: diastolic,
+      pulse: pulse,
+      armUsed: armUsed,
+      recordedAt: recordedAt,
+    );
+  }
+
+  /// Clinical helper to query pending follow-up assessments for a patient.
+  Future<List<BloodPressureLog>> getPendingFollowUpAssessments(String patientId) async {
+    final repository = BloodPressureRepository(database, container.read(pairedBpAlarmServiceProvider));
+    return repository.getPendingFollowUpAssessments(patientId);
+  }
+
+  /// Clinical helper to query paired assessments for a patient.
+  Future<List<PairedBpAssessment>> getPairedAssessments(String patientId) async {
+    final repository = BloodPressureRepository(database, container.read(pairedBpAlarmServiceProvider));
+    return repository.getPairedAssessments(patientId);
+  }
+
+  /// Clinical helper to query paired assessment for a specific medication administration.
+  Future<PairedBpAssessment?> getPairedAssessmentForAdministration(String medicationAdministrationId) async {
+    final repository = BloodPressureRepository(database, container.read(pairedBpAlarmServiceProvider));
+    return repository.getPairedAssessmentForAdministration(medicationAdministrationId);
+  }
+
+  /// Clinical helper to access the paired BP background alarm service.
+  PairedBpAlarmService get pairedBpAlarmService => container.read(pairedBpAlarmServiceProvider);
 
   /// Clinical helper to log Fluid Intake.
   Future<FluidIntakeLog> recordFluidIntake({

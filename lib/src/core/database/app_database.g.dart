@@ -1762,6 +1762,97 @@ class $BloodPressureLogsTable extends BloodPressureLogs
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _isPairedAssessmentMeta =
+      const VerificationMeta('isPairedAssessment');
+  @override
+  late final GeneratedColumn<bool> isPairedAssessment = GeneratedColumn<bool>(
+    'is_paired_assessment',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_paired_assessment" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _pairedRoleMeta = const VerificationMeta(
+    'pairedRole',
+  );
+  @override
+  late final GeneratedColumn<String> pairedRole = GeneratedColumn<String>(
+    'paired_role',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pairedAssessmentIdMeta =
+      const VerificationMeta('pairedAssessmentId');
+  @override
+  late final GeneratedColumn<String> pairedAssessmentId =
+      GeneratedColumn<String>(
+        'paired_assessment_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _medicationAdministrationIdMeta =
+      const VerificationMeta('medicationAdministrationId');
+  @override
+  late final GeneratedColumn<String> medicationAdministrationId =
+      GeneratedColumn<String>(
+        'medication_administration_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _elapsedMinutesMeta = const VerificationMeta(
+    'elapsedMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> elapsedMinutes = GeneratedColumn<int>(
+    'elapsed_minutes',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _systolicDeltaMeta = const VerificationMeta(
+    'systolicDelta',
+  );
+  @override
+  late final GeneratedColumn<int> systolicDelta = GeneratedColumn<int>(
+    'systolic_delta',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _diastolicDeltaMeta = const VerificationMeta(
+    'diastolicDelta',
+  );
+  @override
+  late final GeneratedColumn<int> diastolicDelta = GeneratedColumn<int>(
+    'diastolic_delta',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pulseDeltaMeta = const VerificationMeta(
+    'pulseDelta',
+  );
+  @override
+  late final GeneratedColumn<int> pulseDelta = GeneratedColumn<int>(
+    'pulse_delta',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -1796,6 +1887,14 @@ class $BloodPressureLogsTable extends BloodPressureLogs
     armUsed,
     isSafeArm,
     recordedAt,
+    isPairedAssessment,
+    pairedRole,
+    pairedAssessmentId,
+    medicationAdministrationId,
+    elapsedMinutes,
+    systolicDelta,
+    diastolicDelta,
+    pulseDelta,
     createdAt,
     updatedAt,
   ];
@@ -1868,6 +1967,72 @@ class $BloodPressureLogsTable extends BloodPressureLogs
     } else if (isInserting) {
       context.missing(_recordedAtMeta);
     }
+    if (data.containsKey('is_paired_assessment')) {
+      context.handle(
+        _isPairedAssessmentMeta,
+        isPairedAssessment.isAcceptableOrUnknown(
+          data['is_paired_assessment']!,
+          _isPairedAssessmentMeta,
+        ),
+      );
+    }
+    if (data.containsKey('paired_role')) {
+      context.handle(
+        _pairedRoleMeta,
+        pairedRole.isAcceptableOrUnknown(data['paired_role']!, _pairedRoleMeta),
+      );
+    }
+    if (data.containsKey('paired_assessment_id')) {
+      context.handle(
+        _pairedAssessmentIdMeta,
+        pairedAssessmentId.isAcceptableOrUnknown(
+          data['paired_assessment_id']!,
+          _pairedAssessmentIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('medication_administration_id')) {
+      context.handle(
+        _medicationAdministrationIdMeta,
+        medicationAdministrationId.isAcceptableOrUnknown(
+          data['medication_administration_id']!,
+          _medicationAdministrationIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('elapsed_minutes')) {
+      context.handle(
+        _elapsedMinutesMeta,
+        elapsedMinutes.isAcceptableOrUnknown(
+          data['elapsed_minutes']!,
+          _elapsedMinutesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('systolic_delta')) {
+      context.handle(
+        _systolicDeltaMeta,
+        systolicDelta.isAcceptableOrUnknown(
+          data['systolic_delta']!,
+          _systolicDeltaMeta,
+        ),
+      );
+    }
+    if (data.containsKey('diastolic_delta')) {
+      context.handle(
+        _diastolicDeltaMeta,
+        diastolicDelta.isAcceptableOrUnknown(
+          data['diastolic_delta']!,
+          _diastolicDeltaMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pulse_delta')) {
+      context.handle(
+        _pulseDeltaMeta,
+        pulseDelta.isAcceptableOrUnknown(data['pulse_delta']!, _pulseDeltaMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -1921,6 +2086,38 @@ class $BloodPressureLogsTable extends BloodPressureLogs
         DriftSqlType.dateTime,
         data['${effectivePrefix}recorded_at'],
       )!,
+      isPairedAssessment: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_paired_assessment'],
+      )!,
+      pairedRole: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}paired_role'],
+      ),
+      pairedAssessmentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}paired_assessment_id'],
+      ),
+      medicationAdministrationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}medication_administration_id'],
+      ),
+      elapsedMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}elapsed_minutes'],
+      ),
+      systolicDelta: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}systolic_delta'],
+      ),
+      diastolicDelta: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}diastolic_delta'],
+      ),
+      pulseDelta: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}pulse_delta'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -1948,6 +2145,14 @@ class BloodPressureLog extends DataClass
   final String armUsed;
   final bool isSafeArm;
   final DateTime recordedAt;
+  final bool isPairedAssessment;
+  final String? pairedRole;
+  final String? pairedAssessmentId;
+  final String? medicationAdministrationId;
+  final int? elapsedMinutes;
+  final int? systolicDelta;
+  final int? diastolicDelta;
+  final int? pulseDelta;
   final DateTime createdAt;
   final DateTime updatedAt;
   const BloodPressureLog({
@@ -1959,6 +2164,14 @@ class BloodPressureLog extends DataClass
     required this.armUsed,
     required this.isSafeArm,
     required this.recordedAt,
+    required this.isPairedAssessment,
+    this.pairedRole,
+    this.pairedAssessmentId,
+    this.medicationAdministrationId,
+    this.elapsedMinutes,
+    this.systolicDelta,
+    this.diastolicDelta,
+    this.pulseDelta,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -1973,6 +2186,30 @@ class BloodPressureLog extends DataClass
     map['arm_used'] = Variable<String>(armUsed);
     map['is_safe_arm'] = Variable<bool>(isSafeArm);
     map['recorded_at'] = Variable<DateTime>(recordedAt);
+    map['is_paired_assessment'] = Variable<bool>(isPairedAssessment);
+    if (!nullToAbsent || pairedRole != null) {
+      map['paired_role'] = Variable<String>(pairedRole);
+    }
+    if (!nullToAbsent || pairedAssessmentId != null) {
+      map['paired_assessment_id'] = Variable<String>(pairedAssessmentId);
+    }
+    if (!nullToAbsent || medicationAdministrationId != null) {
+      map['medication_administration_id'] = Variable<String>(
+        medicationAdministrationId,
+      );
+    }
+    if (!nullToAbsent || elapsedMinutes != null) {
+      map['elapsed_minutes'] = Variable<int>(elapsedMinutes);
+    }
+    if (!nullToAbsent || systolicDelta != null) {
+      map['systolic_delta'] = Variable<int>(systolicDelta);
+    }
+    if (!nullToAbsent || diastolicDelta != null) {
+      map['diastolic_delta'] = Variable<int>(diastolicDelta);
+    }
+    if (!nullToAbsent || pulseDelta != null) {
+      map['pulse_delta'] = Variable<int>(pulseDelta);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -1988,6 +2225,29 @@ class BloodPressureLog extends DataClass
       armUsed: Value(armUsed),
       isSafeArm: Value(isSafeArm),
       recordedAt: Value(recordedAt),
+      isPairedAssessment: Value(isPairedAssessment),
+      pairedRole: pairedRole == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pairedRole),
+      pairedAssessmentId: pairedAssessmentId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pairedAssessmentId),
+      medicationAdministrationId:
+          medicationAdministrationId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(medicationAdministrationId),
+      elapsedMinutes: elapsedMinutes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(elapsedMinutes),
+      systolicDelta: systolicDelta == null && nullToAbsent
+          ? const Value.absent()
+          : Value(systolicDelta),
+      diastolicDelta: diastolicDelta == null && nullToAbsent
+          ? const Value.absent()
+          : Value(diastolicDelta),
+      pulseDelta: pulseDelta == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pulseDelta),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -2007,6 +2267,18 @@ class BloodPressureLog extends DataClass
       armUsed: serializer.fromJson<String>(json['armUsed']),
       isSafeArm: serializer.fromJson<bool>(json['isSafeArm']),
       recordedAt: serializer.fromJson<DateTime>(json['recordedAt']),
+      isPairedAssessment: serializer.fromJson<bool>(json['isPairedAssessment']),
+      pairedRole: serializer.fromJson<String?>(json['pairedRole']),
+      pairedAssessmentId: serializer.fromJson<String?>(
+        json['pairedAssessmentId'],
+      ),
+      medicationAdministrationId: serializer.fromJson<String?>(
+        json['medicationAdministrationId'],
+      ),
+      elapsedMinutes: serializer.fromJson<int?>(json['elapsedMinutes']),
+      systolicDelta: serializer.fromJson<int?>(json['systolicDelta']),
+      diastolicDelta: serializer.fromJson<int?>(json['diastolicDelta']),
+      pulseDelta: serializer.fromJson<int?>(json['pulseDelta']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -2023,6 +2295,16 @@ class BloodPressureLog extends DataClass
       'armUsed': serializer.toJson<String>(armUsed),
       'isSafeArm': serializer.toJson<bool>(isSafeArm),
       'recordedAt': serializer.toJson<DateTime>(recordedAt),
+      'isPairedAssessment': serializer.toJson<bool>(isPairedAssessment),
+      'pairedRole': serializer.toJson<String?>(pairedRole),
+      'pairedAssessmentId': serializer.toJson<String?>(pairedAssessmentId),
+      'medicationAdministrationId': serializer.toJson<String?>(
+        medicationAdministrationId,
+      ),
+      'elapsedMinutes': serializer.toJson<int?>(elapsedMinutes),
+      'systolicDelta': serializer.toJson<int?>(systolicDelta),
+      'diastolicDelta': serializer.toJson<int?>(diastolicDelta),
+      'pulseDelta': serializer.toJson<int?>(pulseDelta),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -2037,6 +2319,14 @@ class BloodPressureLog extends DataClass
     String? armUsed,
     bool? isSafeArm,
     DateTime? recordedAt,
+    bool? isPairedAssessment,
+    Value<String?> pairedRole = const Value.absent(),
+    Value<String?> pairedAssessmentId = const Value.absent(),
+    Value<String?> medicationAdministrationId = const Value.absent(),
+    Value<int?> elapsedMinutes = const Value.absent(),
+    Value<int?> systolicDelta = const Value.absent(),
+    Value<int?> diastolicDelta = const Value.absent(),
+    Value<int?> pulseDelta = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => BloodPressureLog(
@@ -2048,6 +2338,24 @@ class BloodPressureLog extends DataClass
     armUsed: armUsed ?? this.armUsed,
     isSafeArm: isSafeArm ?? this.isSafeArm,
     recordedAt: recordedAt ?? this.recordedAt,
+    isPairedAssessment: isPairedAssessment ?? this.isPairedAssessment,
+    pairedRole: pairedRole.present ? pairedRole.value : this.pairedRole,
+    pairedAssessmentId: pairedAssessmentId.present
+        ? pairedAssessmentId.value
+        : this.pairedAssessmentId,
+    medicationAdministrationId: medicationAdministrationId.present
+        ? medicationAdministrationId.value
+        : this.medicationAdministrationId,
+    elapsedMinutes: elapsedMinutes.present
+        ? elapsedMinutes.value
+        : this.elapsedMinutes,
+    systolicDelta: systolicDelta.present
+        ? systolicDelta.value
+        : this.systolicDelta,
+    diastolicDelta: diastolicDelta.present
+        ? diastolicDelta.value
+        : this.diastolicDelta,
+    pulseDelta: pulseDelta.present ? pulseDelta.value : this.pulseDelta,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -2063,6 +2371,30 @@ class BloodPressureLog extends DataClass
       recordedAt: data.recordedAt.present
           ? data.recordedAt.value
           : this.recordedAt,
+      isPairedAssessment: data.isPairedAssessment.present
+          ? data.isPairedAssessment.value
+          : this.isPairedAssessment,
+      pairedRole: data.pairedRole.present
+          ? data.pairedRole.value
+          : this.pairedRole,
+      pairedAssessmentId: data.pairedAssessmentId.present
+          ? data.pairedAssessmentId.value
+          : this.pairedAssessmentId,
+      medicationAdministrationId: data.medicationAdministrationId.present
+          ? data.medicationAdministrationId.value
+          : this.medicationAdministrationId,
+      elapsedMinutes: data.elapsedMinutes.present
+          ? data.elapsedMinutes.value
+          : this.elapsedMinutes,
+      systolicDelta: data.systolicDelta.present
+          ? data.systolicDelta.value
+          : this.systolicDelta,
+      diastolicDelta: data.diastolicDelta.present
+          ? data.diastolicDelta.value
+          : this.diastolicDelta,
+      pulseDelta: data.pulseDelta.present
+          ? data.pulseDelta.value
+          : this.pulseDelta,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -2079,6 +2411,14 @@ class BloodPressureLog extends DataClass
           ..write('armUsed: $armUsed, ')
           ..write('isSafeArm: $isSafeArm, ')
           ..write('recordedAt: $recordedAt, ')
+          ..write('isPairedAssessment: $isPairedAssessment, ')
+          ..write('pairedRole: $pairedRole, ')
+          ..write('pairedAssessmentId: $pairedAssessmentId, ')
+          ..write('medicationAdministrationId: $medicationAdministrationId, ')
+          ..write('elapsedMinutes: $elapsedMinutes, ')
+          ..write('systolicDelta: $systolicDelta, ')
+          ..write('diastolicDelta: $diastolicDelta, ')
+          ..write('pulseDelta: $pulseDelta, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -2095,6 +2435,14 @@ class BloodPressureLog extends DataClass
     armUsed,
     isSafeArm,
     recordedAt,
+    isPairedAssessment,
+    pairedRole,
+    pairedAssessmentId,
+    medicationAdministrationId,
+    elapsedMinutes,
+    systolicDelta,
+    diastolicDelta,
+    pulseDelta,
     createdAt,
     updatedAt,
   );
@@ -2110,6 +2458,14 @@ class BloodPressureLog extends DataClass
           other.armUsed == this.armUsed &&
           other.isSafeArm == this.isSafeArm &&
           other.recordedAt == this.recordedAt &&
+          other.isPairedAssessment == this.isPairedAssessment &&
+          other.pairedRole == this.pairedRole &&
+          other.pairedAssessmentId == this.pairedAssessmentId &&
+          other.medicationAdministrationId == this.medicationAdministrationId &&
+          other.elapsedMinutes == this.elapsedMinutes &&
+          other.systolicDelta == this.systolicDelta &&
+          other.diastolicDelta == this.diastolicDelta &&
+          other.pulseDelta == this.pulseDelta &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -2123,6 +2479,14 @@ class BloodPressureLogsCompanion extends UpdateCompanion<BloodPressureLog> {
   final Value<String> armUsed;
   final Value<bool> isSafeArm;
   final Value<DateTime> recordedAt;
+  final Value<bool> isPairedAssessment;
+  final Value<String?> pairedRole;
+  final Value<String?> pairedAssessmentId;
+  final Value<String?> medicationAdministrationId;
+  final Value<int?> elapsedMinutes;
+  final Value<int?> systolicDelta;
+  final Value<int?> diastolicDelta;
+  final Value<int?> pulseDelta;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -2135,6 +2499,14 @@ class BloodPressureLogsCompanion extends UpdateCompanion<BloodPressureLog> {
     this.armUsed = const Value.absent(),
     this.isSafeArm = const Value.absent(),
     this.recordedAt = const Value.absent(),
+    this.isPairedAssessment = const Value.absent(),
+    this.pairedRole = const Value.absent(),
+    this.pairedAssessmentId = const Value.absent(),
+    this.medicationAdministrationId = const Value.absent(),
+    this.elapsedMinutes = const Value.absent(),
+    this.systolicDelta = const Value.absent(),
+    this.diastolicDelta = const Value.absent(),
+    this.pulseDelta = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2148,6 +2520,14 @@ class BloodPressureLogsCompanion extends UpdateCompanion<BloodPressureLog> {
     required String armUsed,
     this.isSafeArm = const Value.absent(),
     required DateTime recordedAt,
+    this.isPairedAssessment = const Value.absent(),
+    this.pairedRole = const Value.absent(),
+    this.pairedAssessmentId = const Value.absent(),
+    this.medicationAdministrationId = const Value.absent(),
+    this.elapsedMinutes = const Value.absent(),
+    this.systolicDelta = const Value.absent(),
+    this.diastolicDelta = const Value.absent(),
+    this.pulseDelta = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2166,6 +2546,14 @@ class BloodPressureLogsCompanion extends UpdateCompanion<BloodPressureLog> {
     Expression<String>? armUsed,
     Expression<bool>? isSafeArm,
     Expression<DateTime>? recordedAt,
+    Expression<bool>? isPairedAssessment,
+    Expression<String>? pairedRole,
+    Expression<String>? pairedAssessmentId,
+    Expression<String>? medicationAdministrationId,
+    Expression<int>? elapsedMinutes,
+    Expression<int>? systolicDelta,
+    Expression<int>? diastolicDelta,
+    Expression<int>? pulseDelta,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -2179,6 +2567,17 @@ class BloodPressureLogsCompanion extends UpdateCompanion<BloodPressureLog> {
       if (armUsed != null) 'arm_used': armUsed,
       if (isSafeArm != null) 'is_safe_arm': isSafeArm,
       if (recordedAt != null) 'recorded_at': recordedAt,
+      if (isPairedAssessment != null)
+        'is_paired_assessment': isPairedAssessment,
+      if (pairedRole != null) 'paired_role': pairedRole,
+      if (pairedAssessmentId != null)
+        'paired_assessment_id': pairedAssessmentId,
+      if (medicationAdministrationId != null)
+        'medication_administration_id': medicationAdministrationId,
+      if (elapsedMinutes != null) 'elapsed_minutes': elapsedMinutes,
+      if (systolicDelta != null) 'systolic_delta': systolicDelta,
+      if (diastolicDelta != null) 'diastolic_delta': diastolicDelta,
+      if (pulseDelta != null) 'pulse_delta': pulseDelta,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -2194,6 +2593,14 @@ class BloodPressureLogsCompanion extends UpdateCompanion<BloodPressureLog> {
     Value<String>? armUsed,
     Value<bool>? isSafeArm,
     Value<DateTime>? recordedAt,
+    Value<bool>? isPairedAssessment,
+    Value<String?>? pairedRole,
+    Value<String?>? pairedAssessmentId,
+    Value<String?>? medicationAdministrationId,
+    Value<int?>? elapsedMinutes,
+    Value<int?>? systolicDelta,
+    Value<int?>? diastolicDelta,
+    Value<int?>? pulseDelta,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -2207,6 +2614,15 @@ class BloodPressureLogsCompanion extends UpdateCompanion<BloodPressureLog> {
       armUsed: armUsed ?? this.armUsed,
       isSafeArm: isSafeArm ?? this.isSafeArm,
       recordedAt: recordedAt ?? this.recordedAt,
+      isPairedAssessment: isPairedAssessment ?? this.isPairedAssessment,
+      pairedRole: pairedRole ?? this.pairedRole,
+      pairedAssessmentId: pairedAssessmentId ?? this.pairedAssessmentId,
+      medicationAdministrationId:
+          medicationAdministrationId ?? this.medicationAdministrationId,
+      elapsedMinutes: elapsedMinutes ?? this.elapsedMinutes,
+      systolicDelta: systolicDelta ?? this.systolicDelta,
+      diastolicDelta: diastolicDelta ?? this.diastolicDelta,
+      pulseDelta: pulseDelta ?? this.pulseDelta,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -2240,6 +2656,32 @@ class BloodPressureLogsCompanion extends UpdateCompanion<BloodPressureLog> {
     if (recordedAt.present) {
       map['recorded_at'] = Variable<DateTime>(recordedAt.value);
     }
+    if (isPairedAssessment.present) {
+      map['is_paired_assessment'] = Variable<bool>(isPairedAssessment.value);
+    }
+    if (pairedRole.present) {
+      map['paired_role'] = Variable<String>(pairedRole.value);
+    }
+    if (pairedAssessmentId.present) {
+      map['paired_assessment_id'] = Variable<String>(pairedAssessmentId.value);
+    }
+    if (medicationAdministrationId.present) {
+      map['medication_administration_id'] = Variable<String>(
+        medicationAdministrationId.value,
+      );
+    }
+    if (elapsedMinutes.present) {
+      map['elapsed_minutes'] = Variable<int>(elapsedMinutes.value);
+    }
+    if (systolicDelta.present) {
+      map['systolic_delta'] = Variable<int>(systolicDelta.value);
+    }
+    if (diastolicDelta.present) {
+      map['diastolic_delta'] = Variable<int>(diastolicDelta.value);
+    }
+    if (pulseDelta.present) {
+      map['pulse_delta'] = Variable<int>(pulseDelta.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -2263,6 +2705,14 @@ class BloodPressureLogsCompanion extends UpdateCompanion<BloodPressureLog> {
           ..write('armUsed: $armUsed, ')
           ..write('isSafeArm: $isSafeArm, ')
           ..write('recordedAt: $recordedAt, ')
+          ..write('isPairedAssessment: $isPairedAssessment, ')
+          ..write('pairedRole: $pairedRole, ')
+          ..write('pairedAssessmentId: $pairedAssessmentId, ')
+          ..write('medicationAdministrationId: $medicationAdministrationId, ')
+          ..write('elapsedMinutes: $elapsedMinutes, ')
+          ..write('systolicDelta: $systolicDelta, ')
+          ..write('diastolicDelta: $diastolicDelta, ')
+          ..write('pulseDelta: $pulseDelta, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -8052,6 +8502,14 @@ typedef $$BloodPressureLogsTableCreateCompanionBuilder =
       required String armUsed,
       Value<bool> isSafeArm,
       required DateTime recordedAt,
+      Value<bool> isPairedAssessment,
+      Value<String?> pairedRole,
+      Value<String?> pairedAssessmentId,
+      Value<String?> medicationAdministrationId,
+      Value<int?> elapsedMinutes,
+      Value<int?> systolicDelta,
+      Value<int?> diastolicDelta,
+      Value<int?> pulseDelta,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -8066,6 +8524,14 @@ typedef $$BloodPressureLogsTableUpdateCompanionBuilder =
       Value<String> armUsed,
       Value<bool> isSafeArm,
       Value<DateTime> recordedAt,
+      Value<bool> isPairedAssessment,
+      Value<String?> pairedRole,
+      Value<String?> pairedAssessmentId,
+      Value<String?> medicationAdministrationId,
+      Value<int?> elapsedMinutes,
+      Value<int?> systolicDelta,
+      Value<int?> diastolicDelta,
+      Value<int?> pulseDelta,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -8143,6 +8609,46 @@ class $$BloodPressureLogsTableFilterComposer
 
   ColumnFilters<DateTime> get recordedAt => $composableBuilder(
     column: $table.recordedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isPairedAssessment => $composableBuilder(
+    column: $table.isPairedAssessment,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pairedRole => $composableBuilder(
+    column: $table.pairedRole,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pairedAssessmentId => $composableBuilder(
+    column: $table.pairedAssessmentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get medicationAdministrationId => $composableBuilder(
+    column: $table.medicationAdministrationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get elapsedMinutes => $composableBuilder(
+    column: $table.elapsedMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get systolicDelta => $composableBuilder(
+    column: $table.systolicDelta,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get diastolicDelta => $composableBuilder(
+    column: $table.diastolicDelta,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get pulseDelta => $composableBuilder(
+    column: $table.pulseDelta,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8224,6 +8730,46 @@ class $$BloodPressureLogsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isPairedAssessment => $composableBuilder(
+    column: $table.isPairedAssessment,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pairedRole => $composableBuilder(
+    column: $table.pairedRole,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pairedAssessmentId => $composableBuilder(
+    column: $table.pairedAssessmentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get medicationAdministrationId => $composableBuilder(
+    column: $table.medicationAdministrationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get elapsedMinutes => $composableBuilder(
+    column: $table.elapsedMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get systolicDelta => $composableBuilder(
+    column: $table.systolicDelta,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get diastolicDelta => $composableBuilder(
+    column: $table.diastolicDelta,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get pulseDelta => $composableBuilder(
+    column: $table.pulseDelta,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -8287,6 +8833,46 @@ class $$BloodPressureLogsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get recordedAt => $composableBuilder(
     column: $table.recordedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isPairedAssessment => $composableBuilder(
+    column: $table.isPairedAssessment,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pairedRole => $composableBuilder(
+    column: $table.pairedRole,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pairedAssessmentId => $composableBuilder(
+    column: $table.pairedAssessmentId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get medicationAdministrationId => $composableBuilder(
+    column: $table.medicationAdministrationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get elapsedMinutes => $composableBuilder(
+    column: $table.elapsedMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get systolicDelta => $composableBuilder(
+    column: $table.systolicDelta,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get diastolicDelta => $composableBuilder(
+    column: $table.diastolicDelta,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get pulseDelta => $composableBuilder(
+    column: $table.pulseDelta,
     builder: (column) => column,
   );
 
@@ -8361,6 +8947,15 @@ class $$BloodPressureLogsTableTableManager
                 Value<String> armUsed = const Value.absent(),
                 Value<bool> isSafeArm = const Value.absent(),
                 Value<DateTime> recordedAt = const Value.absent(),
+                Value<bool> isPairedAssessment = const Value.absent(),
+                Value<String?> pairedRole = const Value.absent(),
+                Value<String?> pairedAssessmentId = const Value.absent(),
+                Value<String?> medicationAdministrationId =
+                    const Value.absent(),
+                Value<int?> elapsedMinutes = const Value.absent(),
+                Value<int?> systolicDelta = const Value.absent(),
+                Value<int?> diastolicDelta = const Value.absent(),
+                Value<int?> pulseDelta = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -8373,6 +8968,14 @@ class $$BloodPressureLogsTableTableManager
                 armUsed: armUsed,
                 isSafeArm: isSafeArm,
                 recordedAt: recordedAt,
+                isPairedAssessment: isPairedAssessment,
+                pairedRole: pairedRole,
+                pairedAssessmentId: pairedAssessmentId,
+                medicationAdministrationId: medicationAdministrationId,
+                elapsedMinutes: elapsedMinutes,
+                systolicDelta: systolicDelta,
+                diastolicDelta: diastolicDelta,
+                pulseDelta: pulseDelta,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -8387,6 +8990,15 @@ class $$BloodPressureLogsTableTableManager
                 required String armUsed,
                 Value<bool> isSafeArm = const Value.absent(),
                 required DateTime recordedAt,
+                Value<bool> isPairedAssessment = const Value.absent(),
+                Value<String?> pairedRole = const Value.absent(),
+                Value<String?> pairedAssessmentId = const Value.absent(),
+                Value<String?> medicationAdministrationId =
+                    const Value.absent(),
+                Value<int?> elapsedMinutes = const Value.absent(),
+                Value<int?> systolicDelta = const Value.absent(),
+                Value<int?> diastolicDelta = const Value.absent(),
+                Value<int?> pulseDelta = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -8399,6 +9011,14 @@ class $$BloodPressureLogsTableTableManager
                 armUsed: armUsed,
                 isSafeArm: isSafeArm,
                 recordedAt: recordedAt,
+                isPairedAssessment: isPairedAssessment,
+                pairedRole: pairedRole,
+                pairedAssessmentId: pairedAssessmentId,
+                medicationAdministrationId: medicationAdministrationId,
+                elapsedMinutes: elapsedMinutes,
+                systolicDelta: systolicDelta,
+                diastolicDelta: diastolicDelta,
+                pulseDelta: pulseDelta,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,

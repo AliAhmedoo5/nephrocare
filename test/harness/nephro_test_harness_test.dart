@@ -1557,6 +1557,150 @@ void main() {
       final activeAfterCancel = await harness.getActiveDialysisSession(patient.id);
       expect(activeAfterCancel, isNull);
     });
+
+    test('End-to-End Clinical Workflow: Paired Anti-Hypertensive Blood Pressure Assessment Protocol & Background Alarm (#16)', () async {
+      // 1. Setup Patient Profile with Vascular Access and Fistula Arm Safety Flag
+      final patient = await harness.createPatient(
+        name: 'Hypertensive Hemodialysis Patient',
+        diagnosis: ClinicalCondition.hemodialysis.name,
+        prescribedDryWeightKg: 68.0,
+        dailyFluidAllowanceMl: 1500,
+        vascularAccessType: VascularAccessType.arteriovenousFistula.name,
+        fistulaArmLocation: AccessLocation.leftArm.name,
+      );
+
+      // 2. Prescribe Anti-Hypertensive Regimen (Amlodipine)
+      final antiHypMed = await harness.createMedication(
+        patientId: patient.id,
+        name: 'Amlodipine',
+        dosage: '10 mg',
+        frequency: 'Daily in morning',
+        isAntiHypertensive: true,
+      );
+      expect(antiHypMed.id, isNotEmpty);
+      expect(antiHypMed.isAntiHypertensive, isTrue);
+
+      // 3. 1-Tap Administration of Anti-Hypertensive
+      final adminTime = DateTime.utc(2026, 9, 9, 8, 0, 0);
+      final admin = await harness.recordMedicationAdministration(
+        patientId: patient.id,
+        medicationId: antiHypMed.id,
+        administeredAt: adminTime,
+      );
+      expect(admin.id, isNotEmpty);
+      expect(admin.isAntiHypertensive, isTrue);
+
+      // 4. Baseline BP Measurement Lockout Verification: Fistula Arm Safety Flag prohibits leftArm
+      expect(
+        () => harness.recordBaselineBloodPressure(
+          patientId: patient.id,
+          medicationAdministrationId: admin.id,
+          medicationName: antiHypMed.name,
+          systolic: 168,
+          diastolic: 104,
+          pulse: 88,
+          armUsed: 'leftArm', // Prohibited fistula arm!
+          recordedAt: adminTime,
+        ),
+        throwsA(isA<FistulaArmSafetyException>()),
+      );
+
+      // 5. Record Baseline BP Measurement on verified safe arm (rightArm)
+      final baseline = await harness.recordBaselineBloodPressure(
+        patientId: patient.id,
+        medicationAdministrationId: admin.id,
+        medicationName: antiHypMed.name,
+        systolic: 168,
+        diastolic: 104,
+        pulse: 88,
+        armUsed: 'rightArm',
+        onsetWindowMinutes: 30,
+        recordedAt: adminTime,
+      );
+
+      expect(baseline.id, isNotEmpty);
+      expect(baseline.isPairedAssessment, isTrue);
+      expect(baseline.pairedRole, equals('baseline'));
+      expect(baseline.pairedAssessmentId, isNotNull);
+      expect(baseline.medicationAdministrationId, equals(admin.id));
+      expect(baseline.systolic, equals(168));
+      expect(baseline.diastolic, equals(104));
+      expect(baseline.pulse, equals(88));
+      expect(baseline.armUsed, equals('rightArm'));
+      expect(baseline.isSafeArm, isTrue);
+      expect(baseline.elapsedMinutes, isNull);
+      expect(baseline.systolicDelta, isNull);
+      expect(baseline.diastolicDelta, isNull);
+      expect(baseline.pulseDelta, isNull);
+
+      // 6. Background Alarm Scheduled Verification (30 min post-dose)
+      final alarmService = harness.pairedBpAlarmService;
+      final alarm = alarmService.getAlarmForAssessment(baseline.pairedAssessmentId!);
+      expect(alarm, isNotNull);
+      expect(alarm!.intervalMinutes, equals(30));
+      expect(alarm.scheduledFor, equals(adminTime.add(const Duration(minutes: 30))));
+      expect(alarm.medicationName, equals('Amlodipine'));
+      expect(alarm.safeArm, equals('rightArm'));
+      expect(alarm.baselineSystolic, equals(168));
+      expect(alarm.baselineDiastolic, equals(104));
+      expect(alarm.baselinePulse, equals(88));
+
+      // 7. Surveillance: verify pending follow-up is active
+      final pendingAssessments = await harness.getPendingFollowUpAssessments(patient.id);
+      expect(pendingAssessments.length, equals(1));
+      expect(pendingAssessments.first.id, equals(baseline.id));
+
+      // 8. Follow-up BP measurement after 30 minutes
+      final followUpTime = adminTime.add(const Duration(minutes: 30));
+      final followUp = await harness.recordFollowUpBloodPressure(
+        patientId: patient.id,
+        pairedAssessmentId: baseline.pairedAssessmentId!,
+        systolic: 136,
+        diastolic: 84,
+        pulse: 76,
+        armUsed: 'rightArm',
+        recordedAt: followUpTime,
+      );
+
+      expect(followUp.id, isNotEmpty);
+      expect(followUp.isPairedAssessment, isTrue);
+      expect(followUp.pairedRole, equals('followUp'));
+      expect(followUp.pairedAssessmentId, equals(baseline.pairedAssessmentId));
+      expect(followUp.medicationAdministrationId, equals(admin.id));
+      expect(followUp.systolic, equals(136));
+      expect(followUp.diastolic, equals(84));
+      expect(followUp.pulse, equals(76));
+
+      // 9. Exact elapsed minutes & hemodynamic deltas relative to baseline
+      expect(followUp.elapsedMinutes, equals(30));
+      expect(followUp.systolicDelta, equals(-32)); // 136 - 168 = -32 mmHg
+      expect(followUp.diastolicDelta, equals(-20)); // 84 - 104 = -20 mmHg
+      expect(followUp.pulseDelta, equals(-12)); // 76 - 88 = -12 bpm
+
+      // 10. Alarm cleared & pending follow-up resolved
+      expect(alarmService.getAlarmForAssessment(baseline.pairedAssessmentId!), isNull);
+      final pendingAfter = await harness.getPendingFollowUpAssessments(patient.id);
+      expect(pendingAfter, isEmpty);
+
+      // 11. Paired assessment remains queryable and linked to drug administration record
+      final pairedList = await harness.getPairedAssessments(patient.id);
+      expect(pairedList.length, equals(1));
+      final pair = pairedList.first;
+      expect(pair.baseline.id, equals(baseline.id));
+      expect(pair.followUp?.id, equals(followUp.id));
+      expect(pair.isCompleted, isTrue);
+      expect(pair.elapsedMinutes, equals(30));
+      expect(pair.systolicDelta, equals(-32));
+      expect(pair.diastolicDelta, equals(-20));
+      expect(pair.pulseDelta, equals(-12));
+      expect(pair.medicationAdministrationId, equals(admin.id));
+
+      final byAdmin = await harness.getPairedAssessmentForAdministration(admin.id);
+      expect(byAdmin, isNotNull);
+      expect(byAdmin!.pairedAssessmentId, equals(baseline.pairedAssessmentId));
+      expect(byAdmin.baseline.id, equals(baseline.id));
+      expect(byAdmin.followUp?.id, equals(followUp.id));
+    });
   });
 }
 

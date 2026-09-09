@@ -7,6 +7,7 @@ import '../../profile/data/patient_repository.dart';
 import '../../profile/domain/clinical_condition.dart';
 import '../data/blood_pressure_repository.dart';
 import '../domain/vascular_safety_rules.dart';
+import 'paired_bp_dialogs.dart';
 
 /// Blood pressure entry screen enforcing the Fistula Arm Safety Flag
 /// and hard lockout per ADR-0003, with reactive hemodynamic trend visualization.
@@ -157,6 +158,9 @@ class _BloodPressureEntryScreenState extends ConsumerState<BloodPressureEntryScr
       );
     }
 
+    final pendingFollowUpsAsync = ref.watch(pendingFollowUpAssessmentsStreamProvider(patient.id));
+    final pendingFollowUps = pendingFollowUpsAsync.valueOrNull ?? const [];
+
     if (_lastPatientId == null) {
       _applyPatient(patient);
     }
@@ -182,6 +186,83 @@ class _BloodPressureEntryScreenState extends ConsumerState<BloodPressureEntryScr
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Pending Paired Assessment Follow-Up Banner
+              if (pendingFollowUps.isNotEmpty) ...[
+                Container(
+                  key: const Key('pending_followup_banner'),
+                  padding: const EdgeInsets.all(16.0),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.tertiaryContainer,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: theme.colorScheme.tertiary,
+                      width: 2.0,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.alarm_on_rounded,
+                            color: theme.colorScheme.onTertiaryContainer,
+                            size: 28,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Follow-Up BP Measurement Due',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    color: theme.colorScheme.onTertiaryContainer,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  'Baseline: ${pendingFollowUps.first.systolic}/${pendingFollowUps.first.diastolic} mmHg (${pendingFollowUps.first.pulse} bpm) on ${AccessLocation.fromString(pendingFollowUps.first.armUsed)?.displayName ?? pendingFollowUps.first.armUsed}',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onTertiaryContainer,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 44,
+                        child: ElevatedButton.icon(
+                          key: const Key('entry_log_paired_followup_button'),
+                          icon: const Icon(Icons.favorite_rounded, size: 18),
+                          label: const Text('Log Follow-Up Measurement', style: TextStyle(fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.colorScheme.tertiary,
+                            foregroundColor: theme.colorScheme.onTertiary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          onPressed: () {
+                            showFollowUpBpPromptDialog(
+                              context: context,
+                              ref: ref,
+                              patient: patient,
+                              baseline: pendingFollowUps.first,
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
               // 1. Fistula Arm Safety Flag Banner per ADR-0003
               if (hasArmAccess) ...[
                 Container(
@@ -613,6 +694,24 @@ class _HemodynamicTrendsList extends ConsumerWidget {
                                 padding: EdgeInsets.zero,
                                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
+                              if (log.isPairedAssessment) ...[
+                                const SizedBox(width: 6),
+                                Chip(
+                                  label: Text(
+                                    log.pairedRole == 'baseline'
+                                        ? 'Baseline (Paired)'
+                                        : 'Follow-Up (+${log.elapsedMinutes ?? 0}m)',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: theme.colorScheme.onTertiaryContainer,
+                                    ),
+                                  ),
+                                  backgroundColor: theme.colorScheme.tertiaryContainer,
+                                  padding: EdgeInsets.zero,
+                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                              ],
                             ],
                           ),
                           const SizedBox(height: 4),
@@ -622,6 +721,16 @@ class _HemodynamicTrendsList extends ConsumerWidget {
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
+                          if (log.isPairedAssessment && log.pairedRole == 'followUp' && log.systolicDelta != null) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              'Hemodynamic Delta: ${log.systolicDelta! > 0 ? "+" : ""}${log.systolicDelta}/${log.diastolicDelta! > 0 ? "+" : ""}${log.diastolicDelta} mmHg • Pulse: ${log.pulseDelta != null && log.pulseDelta! > 0 ? "+" : ""}${log.pulseDelta} bpm',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

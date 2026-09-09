@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../blood_pressure/data/blood_pressure_repository.dart';
 import '../../blood_pressure/domain/vascular_safety_rules.dart';
 import '../../blood_pressure/presentation/blood_pressure_entry_screen.dart';
+import '../../blood_pressure/presentation/paired_bp_dialogs.dart';
 import '../../catheter/data/catheter_repository.dart';
 import '../../catheter/presentation/catheter_lifespan_screen.dart';
 import '../../dialysis/data/dialysis_session_repository.dart';
@@ -98,6 +100,8 @@ class DashboardScreen extends ConsumerWidget {
     final activeMeds = activeMedsAsync.valueOrNull ?? const [];
     final activeSessionAsync = ref.watch(activeDialysisSessionStreamProvider(patient.id));
     final activeSession = activeSessionAsync.valueOrNull;
+    final pendingFollowUpsAsync = ref.watch(pendingFollowUpAssessmentsStreamProvider(patient.id));
+    final pendingFollowUps = pendingFollowUpsAsync.valueOrNull ?? const [];
 
     return Scaffold(
       appBar: AppBar(
@@ -455,6 +459,15 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ],
 
+              // Paired Anti-Hypertensive Follow-Up BP Alert Card
+              if (pendingFollowUps.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                _DashboardPairedBpPendingCard(
+                  patient: patient,
+                  pendingBaselines: pendingFollowUps,
+                ),
+              ],
+
               // 5. Quick Medication Administration (1-Tap)
               if (activeMeds.isNotEmpty) ...[
                 const SizedBox(height: 16),
@@ -753,7 +766,7 @@ class _DashboardQuickMedicationsCard extends ConsumerWidget {
                             ),
                           ),
                           onPressed: () async {
-                            await ref.read(medicationRepositoryProvider).recordAdministration(
+                            final admin = await ref.read(medicationRepositoryProvider).recordAdministration(
                                   patientId: patient.id,
                                   medicationId: med.id,
                                 );
@@ -765,6 +778,17 @@ class _DashboardQuickMedicationsCard extends ConsumerWidget {
                                   behavior: SnackBarBehavior.floating,
                                 ),
                               );
+
+                              if (med.isAntiHypertensive) {
+                                await showBaselineBpPromptDialog(
+                                  context: context,
+                                  ref: ref,
+                                  patient: patient,
+                                  administration: admin,
+                                  medicationName: med.name,
+                                  dosage: med.dosage,
+                                );
+                              }
                             }
                           },
                         ),
@@ -780,4 +804,95 @@ class _DashboardQuickMedicationsCard extends ConsumerWidget {
     );
   }
 }
+
+/// Alert card indicating a pending follow-up blood pressure measurement for an anti-hypertensive dose.
+class _DashboardPairedBpPendingCard extends ConsumerWidget {
+  final Patient patient;
+  final List<BloodPressureLog> pendingBaselines;
+
+  const _DashboardPairedBpPendingCard({
+    required this.patient,
+    required this.pendingBaselines,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final baseline = pendingBaselines.first;
+    final armName = AccessLocation.fromString(baseline.armUsed)?.displayName ?? baseline.armUsed;
+    final elapsed = DateTime.now().toUtc().difference(baseline.recordedAt).inMinutes;
+
+    return Card(
+      key: const Key('dashboard_paired_bp_alert_card'),
+      color: theme.colorScheme.tertiaryContainer,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.colorScheme.tertiary, width: 1.5),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.alarm_on_rounded, color: theme.colorScheme.onTertiaryContainer, size: 28),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Follow-Up Blood Pressure Due',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onTertiaryContainer,
+                        ),
+                      ),
+                      Text(
+                        'Baseline: ${baseline.systolic}/${baseline.diastolic} mmHg (${baseline.pulse} bpm) on $armName • ${elapsed > 0 ? "$elapsed min ago" : "Just now"}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onTertiaryContainer,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton.icon(
+                key: const Key('dashboard_log_paired_followup_button'),
+                icon: const Icon(Icons.favorite_rounded),
+                label: const Text(
+                  'Log Follow-Up Blood Pressure',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.colorScheme.tertiary,
+                  foregroundColor: theme.colorScheme.onTertiary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: () {
+                  showFollowUpBpPromptDialog(
+                    context: context,
+                    ref: ref,
+                    patient: patient,
+                    baseline: baseline,
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 
