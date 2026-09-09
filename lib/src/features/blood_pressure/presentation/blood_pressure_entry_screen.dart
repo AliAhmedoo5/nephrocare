@@ -7,6 +7,7 @@ import '../../profile/data/patient_repository.dart';
 import '../../profile/domain/clinical_condition.dart';
 import '../data/blood_pressure_repository.dart';
 import '../domain/vascular_safety_rules.dart';
+import '../../clinical_terms_guide/presentation/clinical_info_trigger.dart';
 import 'paired_bp_dialogs.dart';
 
 /// Blood pressure entry screen enforcing the Fistula Arm Safety Flag
@@ -214,12 +215,23 @@ class _BloodPressureEntryScreenState extends ConsumerState<BloodPressureEntryScr
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'Follow-Up BP Measurement Due',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    color: theme.colorScheme.onTertiaryContainer,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        'Follow-Up BP Measurement Due',
+                                        style: theme.textTheme.titleMedium?.copyWith(
+                                          color: theme.colorScheme.onTertiaryContainer,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    const ClinicalInfoTrigger(
+                                      key: Key('paired_bp_followup_info_trigger'),
+                                      termId: 'paired_bp',
+                                      iconSize: 20,
+                                    ),
+                                  ],
                                 ),
                                 Text(
                                   'Baseline: ${pendingFollowUps.first.systolic}/${pendingFollowUps.first.diastolic} mmHg (${pendingFollowUps.first.pulse} bpm) on ${AccessLocation.fromString(pendingFollowUps.first.armUsed)?.displayName ?? pendingFollowUps.first.armUsed}',
@@ -289,12 +301,23 @@ class _BloodPressureEntryScreenState extends ConsumerState<BloodPressureEntryScr
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Fistula Arm Safety Flag Active',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                color: theme.colorScheme.onErrorContainer,
-                                fontWeight: FontWeight.bold,
-                              ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Fistula Arm Safety Flag Active',
+                                    style: theme.textTheme.titleMedium?.copyWith(
+                                      color: theme.colorScheme.onErrorContainer,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                const ClinicalInfoTrigger(
+                                  key: Key('fistula_safety_info_trigger'),
+                                  termId: 'fistula_arm_safety',
+                                  iconSize: 20,
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 4),
                             Text(
@@ -723,12 +746,23 @@ class _HemodynamicTrendsList extends ConsumerWidget {
                           ),
                           if (log.isPairedAssessment && log.pairedRole == 'followUp' && log.systolicDelta != null) ...[
                             const SizedBox(height: 2),
-                            Text(
-                              'Hemodynamic Delta: ${log.systolicDelta! > 0 ? "+" : ""}${log.systolicDelta}/${log.diastolicDelta! > 0 ? "+" : ""}${log.diastolicDelta} mmHg • Pulse: ${log.pulseDelta != null && log.pulseDelta! > 0 ? "+" : ""}${log.pulseDelta} bpm',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.primary,
-                                fontWeight: FontWeight.bold,
-                              ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Hemodynamic Delta: ${log.systolicDelta! > 0 ? "+" : ""}${log.systolicDelta}/${log.diastolicDelta! > 0 ? "+" : ""}${log.diastolicDelta} mmHg • Pulse: ${log.pulseDelta != null && log.pulseDelta! > 0 ? "+" : ""}${log.pulseDelta} bpm',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.primary,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                const ClinicalInfoTrigger(
+                                  key: Key('paired_bp_delta_info_trigger'),
+                                  termId: 'paired_bp',
+                                  iconSize: 18,
+                                ),
+                              ],
                             ),
                           ],
                         ],

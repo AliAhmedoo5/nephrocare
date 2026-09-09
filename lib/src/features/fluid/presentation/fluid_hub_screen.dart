@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../clinical_terms_guide/presentation/clinical_info_trigger.dart';
 import '../../dialysis/data/dialysis_session_repository.dart';
 import '../data/fluid_repository.dart';
 import '../domain/fluid_balance_summary.dart';
@@ -194,6 +195,12 @@ class _DualFluidBalanceCards extends StatelessWidget {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                        const SizedBox(width: 4),
+                        const ClinicalInfoTrigger(
+                          key: Key('retention_info_trigger'),
+                          termId: 'native_urine_balance',
+                          iconSize: 18,
+                        ),
                       ],
                     ),
                     Text(
@@ -260,6 +267,12 @@ class _DualFluidBalanceCards extends StatelessWidget {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                        const SizedBox(width: 4),
+                        const ClinicalInfoTrigger(
+                          key: Key('dialysis_removal_info_trigger'),
+                          termId: 'uf_goal',
+                          iconSize: 18,
+                        ),
                       ],
                     ),
                     Text(
@@ -312,6 +325,12 @@ class _DualFluidBalanceCards extends StatelessWidget {
                             fontWeight: FontWeight.bold,
                             color: theme.colorScheme.onPrimaryContainer,
                           ),
+                        ),
+                        const SizedBox(width: 4),
+                        const ClinicalInfoTrigger(
+                          key: Key('net_balance_info_trigger'),
+                          termId: 'dialytic_fluid_balance',
+                          iconSize: 18,
                         ),
                       ],
                     ),

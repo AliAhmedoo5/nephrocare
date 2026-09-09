@@ -6,6 +6,7 @@ import '../../../core/database/app_database.dart';
 import '../../profile/domain/clinical_condition.dart';
 import '../data/dialysis_session_repository.dart';
 import '../domain/hemodialysis_calculation_rules.dart';
+import '../../clinical_terms_guide/presentation/clinical_info_trigger.dart';
 import 'access_inspection_history_screen.dart';
 import 'weight_trends_screen.dart';
 
@@ -327,11 +328,22 @@ class _HemodialysisCheckInScreenState extends ConsumerState<HemodialysisCheckInS
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    'Interdialytic Weight Gain',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          'Interdialytic Weight Gain',
+                                          style: theme.textTheme.bodySmall?.copyWith(
+                                            color: theme.colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ),
+                                      const ClinicalInfoTrigger(
+                                        key: Key('idwg_info_trigger'),
+                                        termId: 'idwg',
+                                        iconSize: 18,
+                                      ),
+                                    ],
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
@@ -352,11 +364,22 @@ class _HemodialysisCheckInScreenState extends ConsumerState<HemodialysisCheckInS
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    'Ultrafiltration Goal',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          'Ultrafiltration Goal',
+                                          style: theme.textTheme.bodySmall?.copyWith(
+                                            color: theme.colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ),
+                                      const ClinicalInfoTrigger(
+                                        key: Key('uf_goal_info_trigger'),
+                                        termId: 'uf_goal',
+                                        iconSize: 18,
+                                      ),
+                                    ],
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
@@ -381,9 +404,23 @@ class _HemodialysisCheckInScreenState extends ConsumerState<HemodialysisCheckInS
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Pre-Session Vascular Access Inspection',
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              'Pre-Session Vascular Access Inspection',
+                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const ClinicalInfoTrigger(
+                            key: Key('access_inspection_info_trigger'),
+                            termId: 'thrill_and_bruit',
+                            iconSize: 18,
+                          ),
+                        ],
+                      ),
                     ),
                     TextButton.icon(
                       key: const Key('view_access_history_button'),

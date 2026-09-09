@@ -25,6 +25,8 @@ import '../../profile/presentation/patient_profile_setup_screen.dart';
 import '../../profile/presentation/profile_management_screen.dart';
 import '../../reports/presentation/modular_clinical_report_screen.dart';
 import '../../sync/presentation/offline_peer_sync_screen.dart';
+import '../../clinical_terms_guide/presentation/caregiver_terms_guide_screen.dart';
+import '../../clinical_terms_guide/presentation/clinical_info_trigger.dart';
 import 'condition_adaptive_grid.dart';
 import 'symptom_log_screen.dart';
 
@@ -36,6 +38,14 @@ class DashboardScreen extends ConsumerWidget {
     super.key,
     required this.patient,
   });
+
+  void _openCaregiverTermsGuide(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const CaregiverTermsGuideScreen(),
+      ),
+    );
+  }
 
   void _editProfile(BuildContext context) {
     Navigator.of(context).push(
@@ -135,6 +145,12 @@ class DashboardScreen extends ConsumerWidget {
             icon: const Icon(Icons.picture_as_pdf_outlined),
             tooltip: 'Modular Clinical Report',
             onPressed: () => _openModularClinicalReport(context),
+          ),
+          IconButton(
+            key: const Key('open_terms_guide_button'),
+            icon: const Icon(Icons.menu_book_outlined),
+            tooltip: 'Caregiver & Clinical Terms Guide',
+            onPressed: () => _openCaregiverTermsGuide(context),
           ),
           IconButton(
             key: const Key('manage_profiles_button'),
@@ -301,12 +317,23 @@ class DashboardScreen extends ConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Fistula Arm Safety Flag Active',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                color: theme.colorScheme.onErrorContainer,
-                                fontWeight: FontWeight.bold,
-                              ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Fistula Arm Safety Flag Active',
+                                    style: theme.textTheme.titleSmall?.copyWith(
+                                      color: theme.colorScheme.onErrorContainer,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                const ClinicalInfoTrigger(
+                                  key: Key('dashboard_fistula_safety_info_trigger'),
+                                  termId: 'fistula_arm_safety',
+                                  iconSize: 20,
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 2),
                             Text(
@@ -353,12 +380,23 @@ class DashboardScreen extends ConsumerWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'CAUTI Risk Window Active',
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  color: theme.colorScheme.onErrorContainer,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'CAUTI Risk Window Active',
+                                      style: theme.textTheme.titleSmall?.copyWith(
+                                        color: theme.colorScheme.onErrorContainer,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  const ClinicalInfoTrigger(
+                                    key: Key('dashboard_cauti_risk_info_trigger'),
+                                    termId: 'cauti_risk_window',
+                                    iconSize: 20,
+                                  ),
+                                ],
                               ),
                               const SizedBox(height: 2),
                               Text(

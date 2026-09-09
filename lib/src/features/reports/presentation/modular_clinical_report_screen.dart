@@ -8,6 +8,7 @@ import '../data/clinical_report_repository.dart';
 import '../domain/clinical_report_config.dart';
 import '../domain/clinical_report_data.dart';
 import '../domain/clinical_report_pdf_generator.dart';
+import '../../clinical_terms_guide/presentation/clinical_info_trigger.dart';
 import 'clinical_report_preview_screen.dart';
 
 /// Screen allowing clinicians and patients to configure modular parameters,
@@ -186,6 +187,43 @@ class _ModularClinicalReportScreenState extends ConsumerState<ModularClinicalRep
     return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
   }
 
+  Widget? _getModuleInfoTrigger(ClinicalReportModule module) {
+    switch (module) {
+      case ClinicalReportModule.pairedAntiHypertensiveBp:
+        return const ClinicalInfoTrigger(
+          key: Key('report_module_info_paired_bp'),
+          termId: 'paired_bp',
+          iconSize: 18,
+        );
+      case ClinicalReportModule.dualFluidBalance:
+        return const ClinicalInfoTrigger(
+          key: Key('report_module_info_dual_fluid'),
+          termId: 'dialytic_fluid_balance',
+          iconSize: 18,
+        );
+      case ClinicalReportModule.accessInspectionAndCatheterHistory:
+        return const ClinicalInfoTrigger(
+          key: Key('report_module_info_catheter'),
+          termId: 'cauti_risk_window',
+          iconSize: 18,
+        );
+      case ClinicalReportModule.weightTrends:
+        return const ClinicalInfoTrigger(
+          key: Key('report_module_info_weight_trends'),
+          termId: 'idwg',
+          iconSize: 18,
+        );
+      case ClinicalReportModule.medicationRegimenAndAdherence:
+        return const ClinicalInfoTrigger(
+          key: Key('report_module_info_medication_regimen'),
+          termId: 'phosphate_binder',
+          iconSize: 18,
+        );
+      default:
+        return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -362,11 +400,21 @@ class _ModularClinicalReportScreenState extends ConsumerState<ModularClinicalRep
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Clinical Modules Checklist',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        'Clinical Modules Checklist',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const ClinicalInfoTrigger(
+                        key: Key('report_modules_info_trigger'),
+                        termId: 'modular_clinical_report',
+                        iconSize: 18,
+                      ),
+                    ],
                   ),
                   Row(
                     children: [
@@ -408,6 +456,7 @@ class _ModularClinicalReportScreenState extends ConsumerState<ModularClinicalRep
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
+                      secondary: _getModuleInfoTrigger(module),
                       controlAffinity: ListTileControlAffinity.leading,
                       onChanged: (val) {
                         _toggleModule(module, val ?? false);

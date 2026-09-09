@@ -5,6 +5,7 @@ import '../../../core/database/app_database.dart';
 import '../../fluid/presentation/fluid_output_entry_screen.dart';
 import '../data/catheter_repository.dart';
 import '../domain/catheter_lifespan_rules.dart';
+import '../../clinical_terms_guide/presentation/clinical_info_trigger.dart';
 
 /// Urine Foley Catheter 14-Day Lifespan Monitor Screen.
 ///
@@ -322,9 +323,20 @@ class _CatheterLifespanScreenState extends ConsumerState<CatheterLifespanScreen>
                       },
                     ),
                     const SizedBox(height: 18),
-                    Text(
-                      'Hematuria Grade (1 to 4)',
-                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Hematuria Grade (1 to 4)',
+                            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const ClinicalInfoTrigger(
+                          key: Key('hematuria_grade_info_trigger'),
+                          termId: 'hematuria_grade',
+                          iconSize: 18,
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 8),
                     Column(
@@ -1181,12 +1193,23 @@ class _CautiRiskAlertBanner extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'CAUTI Risk Window Active',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onErrorContainer,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'CAUTI Risk Window Active',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onErrorContainer,
+                        ),
+                      ),
+                    ),
+                    const ClinicalInfoTrigger(
+                      key: Key('cauti_risk_info_trigger'),
+                      termId: 'cauti_risk_window',
+                      iconSize: 20,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(
