@@ -6,6 +6,7 @@ import '../../blood_pressure/domain/vascular_safety_rules.dart';
 import '../../blood_pressure/presentation/blood_pressure_entry_screen.dart';
 import '../../catheter/data/catheter_repository.dart';
 import '../../catheter/presentation/catheter_lifespan_screen.dart';
+import '../../dialysis/data/dialysis_session_repository.dart';
 import '../../dialysis/presentation/access_inspection_history_screen.dart';
 import '../../dialysis/presentation/hemodialysis_check_in_screen.dart';
 import '../../dialysis/presentation/hemodialysis_post_session_screen.dart';
@@ -95,6 +96,8 @@ class DashboardScreen extends ConsumerWidget {
     final catheterSummary = catheterSummaryAsync.valueOrNull;
     final activeMedsAsync = ref.watch(activeMedicationsStreamProvider(patient.id));
     final activeMeds = activeMedsAsync.valueOrNull ?? const [];
+    final activeSessionAsync = ref.watch(activeDialysisSessionStreamProvider(patient.id));
+    final activeSession = activeSessionAsync.valueOrNull;
 
     return Scaffold(
       appBar: AppBar(
@@ -369,7 +372,90 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ],
 
-              // 4. Quick Medication Administration (1-Tap)
+              // 4. Active In-Progress Dialysis Session Banner per Issue #15
+              if (activeSession != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  key: const Key('active_dialysis_session_banner'),
+                  padding: const EdgeInsets.all(16.0),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: theme.colorScheme.primary,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.play_circle_filled_rounded,
+                            color: theme.colorScheme.primary,
+                            size: 28,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Dialysis Session In Progress',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.onPrimaryContainer,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Started at ${activeSession.startedAt.toLocal().hour.toString().padLeft(2, '0')}:${activeSession.startedAt.toLocal().minute.toString().padLeft(2, '0')} • Pre-Weight: ${activeSession.preWeightKg != null ? "${activeSession.preWeightKg} kg" : "--"}${activeSession.calculatedUltrafiltrationGoalMl != null ? " • UF Goal: ${activeSession.calculatedUltrafiltrationGoalMl} mL" : ""}',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onPrimaryContainer,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton.icon(
+                          key: const Key('resume_dialysis_session_button'),
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => HemodialysisPostSessionScreen(
+                                  patient: patient,
+                                  existingSession: activeSession,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.arrow_forward_rounded),
+                          label: const Text(
+                            'Resume Session / Checkout',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.colorScheme.primary,
+                            foregroundColor: theme.colorScheme.onPrimary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              // 5. Quick Medication Administration (1-Tap)
               if (activeMeds.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 _DashboardQuickMedicationsCard(

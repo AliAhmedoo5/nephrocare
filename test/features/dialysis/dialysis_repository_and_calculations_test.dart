@@ -365,6 +365,123 @@ void main() {
         expect(sessions.length, equals(1));
         expect(sessions.first.symptoms, contains('edema'));
       });
+
+      test('manages continuous session lifecycle: inProgress check-in -> active query -> completed checkout with recovery symptoms', () async {
+        final patient = await harness.createPatient(
+          name: 'Session Lifecycle Patient',
+          diagnosis: ClinicalCondition.hemodialysis.name,
+          prescribedDryWeightKg: 70.0,
+          vascularAccessType: VascularAccessType.arteriovenousFistula.name,
+          fistulaArmLocation: AccessLocation.leftArm.name,
+        );
+
+        // 1. Initial check-in creates inProgress session
+        final session = await repository.recordPreDialysisCheckIn(
+          patientId: patient.id,
+          preWeightKg: 73.0,
+          volumeAllowanceMl: 200,
+          notes: 'Starting HD session',
+        );
+
+        expect(session.id, isNotEmpty);
+        expect(session.status, equals('inProgress'));
+        expect(session.preWeightKg, equals(73.0));
+        // UF Goal: (73.0 - 70.0) * 1000 + 200 = 3200 mL
+        expect(session.calculatedUltrafiltrationGoalMl, equals(3200));
+
+        // 2. Query active session
+        final activeSession = await repository.getActiveSession(patient.id);
+        expect(activeSession, isNotNull);
+        expect(activeSession!.id, equals(session.id));
+        expect(activeSession.status, equals('inProgress'));
+
+        // 3. Complete checkout on the continuous session
+        final completedSession = await repository.recordPostDialysisSession(
+          sessionId: session.id,
+          postWeightKg: 70.4,
+          actualFluidRemovedMl: 3100,
+          symptoms: ['muscle cramping', 'dizziness', 'headache', 'nausea', 'post-dialysis fatigue'],
+          notes: 'Completed session smoothly',
+        );
+
+        expect(completedSession.id, equals(session.id));
+        expect(completedSession.status, equals('completed'));
+        expect(completedSession.postWeightKg, equals(70.4));
+        expect(completedSession.actualFluidRemovedMl, equals(3100));
+        expect(completedSession.symptoms, contains('muscle cramping'));
+        expect(completedSession.symptoms, contains('dizziness'));
+        expect(completedSession.symptoms, contains('headache'));
+        expect(completedSession.symptoms, contains('nausea'));
+        expect(completedSession.symptoms, contains('post-dialysis fatigue'));
+        expect(completedSession.calculatedPostWeightDifferenceKg, equals(0.4));
+
+        // 4. Verify no active session remains
+        final activeAfterCheckout = await repository.getActiveSession(patient.id);
+        expect(activeAfterCheckout, isNull);
+      });
+
+      test('cancelDialysisSession updates session status to cancelled and sets endedAt', () async {
+        final patient = await harness.createPatient(
+          name: 'Cancel Test Patient',
+          diagnosis: ClinicalCondition.hemodialysis.name,
+          prescribedDryWeightKg: 65.0,
+        );
+
+        final session = await repository.recordPreDialysisCheckIn(
+          patientId: patient.id,
+          preWeightKg: 67.0,
+        );
+        expect(session.status, equals('inProgress'));
+
+        final cancelledSession = await repository.cancelDialysisSession(session.id, reason: 'Machine malfunction');
+        expect(cancelledSession.id, equals(session.id));
+        expect(cancelledSession.status, equals('cancelled'));
+        expect(cancelledSession.endedAt, isNotNull);
+        expect(cancelledSession.notes, contains('Machine malfunction'));
+
+        final activeSession = await repository.getActiveSession(patient.id);
+        expect(activeSession, isNull);
+      });
+
+      test('IDWG calculation uses previous completed session and ignores cancelled sessions', () async {
+        final patient = await harness.createPatient(
+          name: 'Sequential IDWG Patient',
+          diagnosis: ClinicalCondition.hemodialysis.name,
+          prescribedDryWeightKg: 68.0,
+        );
+
+        // Session 1: Completed with post-weight 68.5
+        final session1 = await repository.recordPreDialysisCheckIn(
+          patientId: patient.id,
+          preWeightKg: 71.0,
+          startedAt: DateTime.now().subtract(const Duration(days: 4)),
+        );
+        await repository.recordPostDialysisSession(
+          sessionId: session1.id,
+          postWeightKg: 68.5,
+          endedAt: DateTime.now().subtract(const Duration(days: 4, hours: -4)),
+        );
+
+        // Session 2: Aborted/Cancelled with post-weight 70.0 (incomplete)
+        final session2 = await repository.recordPreDialysisCheckIn(
+          patientId: patient.id,
+          preWeightKg: 71.5,
+          startedAt: DateTime.now().subtract(const Duration(days: 2)),
+        );
+        await repository.cancelDialysisSession(session2.id, reason: 'Hypotension emergency');
+
+        // Session 3: Check-in at 71.2 kg
+        // IDWG must be calculated against Session 1 post-weight (68.5), NOT Session 2 (cancelled)
+        final session3 = await repository.recordPreDialysisCheckIn(
+          patientId: patient.id,
+          preWeightKg: 71.2,
+          startedAt: DateTime.now(),
+        );
+
+        // 71.2 - 68.5 = 2.7 kg
+        expect(session3.calculatedInterdialyticWeightGainKg, equals(2.7));
+      });
     });
   });
 }
+

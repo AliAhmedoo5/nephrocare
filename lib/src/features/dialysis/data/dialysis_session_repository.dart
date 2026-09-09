@@ -43,7 +43,10 @@ class DialysisSessionRepository {
 
     // 2. Query previous completed session to get previous postWeightKg
     final previousSession = await (_db.select(_db.dialysisSessions)
-          ..where((tbl) => tbl.patientId.equals(patientId) & tbl.postWeightKg.isNotNull())
+          ..where((tbl) =>
+              tbl.patientId.equals(patientId) &
+              tbl.postWeightKg.isNotNull() &
+              tbl.status.equals('completed'))
           ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.startedAt)])
           ..limit(1))
         .getSingleOrNull();
@@ -68,7 +71,7 @@ class DialysisSessionRepository {
     final now = DateTime.now().toUtc();
     final sessionStartTime = startedAt?.toUtc() ?? now;
 
-    // 4. Insert DialysisSession
+    // 4. Insert DialysisSession with inProgress status for hemodialysis
     final sessionCompanion = DialysisSessionsCompanion.insert(
       id: drift.Value(sessionId),
       patientId: patientId,
@@ -77,6 +80,7 @@ class DialysisSessionRepository {
       preWeightKg: drift.Value(preWeightKg),
       calculatedInterdialyticWeightGainKg: drift.Value(idwg),
       calculatedUltrafiltrationGoalMl: drift.Value(ufGoal),
+      status: drift.Value(sessionType == 'hemodialysis' ? 'inProgress' : 'completed'),
       notes: drift.Value(notes),
       createdAt: drift.Value(now),
       updatedAt: drift.Value(now),
@@ -152,6 +156,7 @@ class DialysisSessionRepository {
       calculatedPostWeightDifferenceKg: drift.Value(postWeightDiff),
       actualFluidRemovedMl: drift.Value(actualFluidRemovedMl),
       symptoms: drift.Value(symptomsString),
+      status: const drift.Value('completed'),
       endedAt: drift.Value(sessionEndTime),
       notes: notes != null ? drift.Value(notes) : const drift.Value.absent(),
       updatedAt: drift.Value(now),
@@ -304,6 +309,48 @@ class DialysisSessionRepository {
         .watch();
   }
 
+  /// Cancels an in-progress dialysis session with an optional cancellation reason.
+  Future<DialysisSession> cancelDialysisSession(String sessionId, {String? reason}) async {
+    final session = await (_db.select(_db.dialysisSessions)..where((tbl) => tbl.id.equals(sessionId))).getSingleOrNull();
+    if (session == null) {
+      throw ArgumentError('Dialysis session not found with id: $sessionId');
+    }
+
+    final now = DateTime.now().toUtc();
+    final combinedNotes = [
+      if (session.notes != null && session.notes!.isNotEmpty) session.notes!,
+      if (reason != null && reason.isNotEmpty) 'Cancelled: $reason',
+    ].join(' | ');
+
+    final updateCompanion = DialysisSessionsCompanion(
+      status: const drift.Value('cancelled'),
+      endedAt: drift.Value(now),
+      notes: combinedNotes.isNotEmpty ? drift.Value(combinedNotes) : const drift.Value.absent(),
+      updatedAt: drift.Value(now),
+    );
+
+    await (_db.update(_db.dialysisSessions)..where((tbl) => tbl.id.equals(sessionId))).write(updateCompanion);
+    return (_db.select(_db.dialysisSessions)..where((tbl) => tbl.id.equals(sessionId))).getSingle();
+  }
+
+  /// Queries the active (inProgress) hemodialysis session for a patient, if any.
+  Future<DialysisSession?> getActiveSession(String patientId) async {
+    return (_db.select(_db.dialysisSessions)
+          ..where((tbl) => tbl.patientId.equals(patientId) & tbl.status.equals('inProgress'))
+          ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.startedAt)])
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  /// Observes the active (inProgress) hemodialysis session for a patient reactively.
+  Stream<DialysisSession?> watchActiveSession(String patientId) {
+    return (_db.select(_db.dialysisSessions)
+          ..where((tbl) => tbl.patientId.equals(patientId) & tbl.status.equals('inProgress'))
+          ..orderBy([(tbl) => drift.OrderingTerm.desc(tbl.startedAt)])
+          ..limit(1))
+        .watchSingleOrNull();
+  }
+
   /// Records a standalone vascular or catheter exit-site access inspection in Drift SQLite.
   Future<AccessInspection> recordAccessInspection({
     String? id,
@@ -385,3 +432,10 @@ final accessInspectionsStreamProvider = StreamProvider.family<List<AccessInspect
   final repository = ref.watch(dialysisSessionRepositoryProvider);
   return repository.watchAccessInspections(patientId);
 });
+
+/// Stream provider for the currently active (inProgress) dialysis session of a patient.
+final activeDialysisSessionStreamProvider = StreamProvider.family<DialysisSession?, String>((ref, patientId) {
+  final repository = ref.watch(dialysisSessionRepositoryProvider);
+  return repository.watchActiveSession(patientId);
+});
+

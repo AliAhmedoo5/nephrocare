@@ -107,3 +107,27 @@ class HemodialysisCalculationRules {
     return warnings;
   }
 }
+
+/// Lifecycle states of a unified hemodialysis session per Issue #15.
+enum DialysisSessionStatus {
+  inProgress('inProgress', 'In Progress'),
+  completed('completed', 'Completed'),
+  cancelled('cancelled', 'Cancelled');
+
+  final String value;
+  final String displayName;
+
+  const DialysisSessionStatus(this.value, this.displayName);
+
+  static DialysisSessionStatus fromString(String? val) {
+    if (val == null) return DialysisSessionStatus.completed;
+    for (final status in DialysisSessionStatus.values) {
+      if (status.value.toLowerCase() == val.toLowerCase() ||
+          status.name.toLowerCase() == val.toLowerCase()) {
+        return status;
+      }
+    }
+    return DialysisSessionStatus.completed;
+  }
+}
+

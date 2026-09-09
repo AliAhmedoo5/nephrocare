@@ -41,6 +41,7 @@ class DialysisSessions extends Table {
   IntColumn get actualFluidRemovedMl => integer().nullable()();
   TextColumn get notes => text().nullable()();
   TextColumn get symptoms => text().nullable()();
+  TextColumn get status => text().withDefault(const Constant('completed'))(); // inProgress, completed, cancelled
   DateTimeColumn get createdAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
   DateTimeColumn get updatedAt => dateTime().clientDefault(() => DateTime.now().toUtc())();
 

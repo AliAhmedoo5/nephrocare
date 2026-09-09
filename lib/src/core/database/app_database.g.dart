@@ -812,6 +812,16 @@ class $DialysisSessionsTable extends DialysisSessions
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('completed'),
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -851,6 +861,7 @@ class $DialysisSessionsTable extends DialysisSessions
     actualFluidRemovedMl,
     notes,
     symptoms,
+    status,
     createdAt,
     updatedAt,
   ];
@@ -968,6 +979,12 @@ class $DialysisSessionsTable extends DialysisSessions
         symptoms.isAcceptableOrUnknown(data['symptoms']!, _symptomsMeta),
       );
     }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -1041,6 +1058,10 @@ class $DialysisSessionsTable extends DialysisSessions
         DriftSqlType.string,
         data['${effectivePrefix}symptoms'],
       ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -1072,6 +1093,7 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
   final int? actualFluidRemovedMl;
   final String? notes;
   final String? symptoms;
+  final String status;
   final DateTime createdAt;
   final DateTime updatedAt;
   const DialysisSession({
@@ -1088,6 +1110,7 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
     this.actualFluidRemovedMl,
     this.notes,
     this.symptoms,
+    required this.status,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -1131,6 +1154,7 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
     if (!nullToAbsent || symptoms != null) {
       map['symptoms'] = Variable<String>(symptoms);
     }
+    map['status'] = Variable<String>(status);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -1172,6 +1196,7 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
       symptoms: symptoms == null && nullToAbsent
           ? const Value.absent()
           : Value(symptoms),
+      status: Value(status),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -1204,6 +1229,7 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
       ),
       notes: serializer.fromJson<String?>(json['notes']),
       symptoms: serializer.fromJson<String?>(json['symptoms']),
+      status: serializer.fromJson<String>(json['status']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -1231,6 +1257,7 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
       'actualFluidRemovedMl': serializer.toJson<int?>(actualFluidRemovedMl),
       'notes': serializer.toJson<String?>(notes),
       'symptoms': serializer.toJson<String?>(symptoms),
+      'status': serializer.toJson<String>(status),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -1250,6 +1277,7 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
     Value<int?> actualFluidRemovedMl = const Value.absent(),
     Value<String?> notes = const Value.absent(),
     Value<String?> symptoms = const Value.absent(),
+    String? status,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => DialysisSession(
@@ -1275,6 +1303,7 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
         : this.actualFluidRemovedMl,
     notes: notes.present ? notes.value : this.notes,
     symptoms: symptoms.present ? symptoms.value : this.symptoms,
+    status: status ?? this.status,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -1310,6 +1339,7 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
           : this.actualFluidRemovedMl,
       notes: data.notes.present ? data.notes.value : this.notes,
       symptoms: data.symptoms.present ? data.symptoms.value : this.symptoms,
+      status: data.status.present ? data.status.value : this.status,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -1337,6 +1367,7 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
           ..write('actualFluidRemovedMl: $actualFluidRemovedMl, ')
           ..write('notes: $notes, ')
           ..write('symptoms: $symptoms, ')
+          ..write('status: $status, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -1358,6 +1389,7 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
     actualFluidRemovedMl,
     notes,
     symptoms,
+    status,
     createdAt,
     updatedAt,
   );
@@ -1381,6 +1413,7 @@ class DialysisSession extends DataClass implements Insertable<DialysisSession> {
           other.actualFluidRemovedMl == this.actualFluidRemovedMl &&
           other.notes == this.notes &&
           other.symptoms == this.symptoms &&
+          other.status == this.status &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -1399,6 +1432,7 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
   final Value<int?> actualFluidRemovedMl;
   final Value<String?> notes;
   final Value<String?> symptoms;
+  final Value<String> status;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -1416,6 +1450,7 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
     this.actualFluidRemovedMl = const Value.absent(),
     this.notes = const Value.absent(),
     this.symptoms = const Value.absent(),
+    this.status = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1434,6 +1469,7 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
     this.actualFluidRemovedMl = const Value.absent(),
     this.notes = const Value.absent(),
     this.symptoms = const Value.absent(),
+    this.status = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1454,6 +1490,7 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
     Expression<int>? actualFluidRemovedMl,
     Expression<String>? notes,
     Expression<String>? symptoms,
+    Expression<String>? status,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -1478,6 +1515,7 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
         'actual_fluid_removed_ml': actualFluidRemovedMl,
       if (notes != null) 'notes': notes,
       if (symptoms != null) 'symptoms': symptoms,
+      if (status != null) 'status': status,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -1498,6 +1536,7 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
     Value<int?>? actualFluidRemovedMl,
     Value<String?>? notes,
     Value<String?>? symptoms,
+    Value<String>? status,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -1522,6 +1561,7 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
       actualFluidRemovedMl: actualFluidRemovedMl ?? this.actualFluidRemovedMl,
       notes: notes ?? this.notes,
       symptoms: symptoms ?? this.symptoms,
+      status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -1578,6 +1618,9 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
     if (symptoms.present) {
       map['symptoms'] = Variable<String>(symptoms.value);
     }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -1612,6 +1655,7 @@ class DialysisSessionsCompanion extends UpdateCompanion<DialysisSession> {
           ..write('actualFluidRemovedMl: $actualFluidRemovedMl, ')
           ..write('notes: $notes, ')
           ..write('symptoms: $symptoms, ')
+          ..write('status: $status, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -7444,6 +7488,7 @@ typedef $$DialysisSessionsTableCreateCompanionBuilder =
       Value<int?> actualFluidRemovedMl,
       Value<String?> notes,
       Value<String?> symptoms,
+      Value<String> status,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -7463,6 +7508,7 @@ typedef $$DialysisSessionsTableUpdateCompanionBuilder =
       Value<int?> actualFluidRemovedMl,
       Value<String?> notes,
       Value<String?> symptoms,
+      Value<String> status,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -7563,6 +7609,11 @@ class $$DialysisSessionsTableFilterComposer
 
   ColumnFilters<String> get symptoms => $composableBuilder(
     column: $table.symptoms,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7672,6 +7723,11 @@ class $$DialysisSessionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -7768,6 +7824,9 @@ class $$DialysisSessionsTableAnnotationComposer
   GeneratedColumn<String> get symptoms =>
       $composableBuilder(column: $table.symptoms, builder: (column) => column);
 
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -7844,6 +7903,7 @@ class $$DialysisSessionsTableTableManager
                 Value<int?> actualFluidRemovedMl = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<String?> symptoms = const Value.absent(),
+                Value<String> status = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -7864,6 +7924,7 @@ class $$DialysisSessionsTableTableManager
                 actualFluidRemovedMl: actualFluidRemovedMl,
                 notes: notes,
                 symptoms: symptoms,
+                status: status,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -7886,6 +7947,7 @@ class $$DialysisSessionsTableTableManager
                 Value<int?> actualFluidRemovedMl = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<String?> symptoms = const Value.absent(),
+                Value<String> status = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -7906,6 +7968,7 @@ class $$DialysisSessionsTableTableManager
                 actualFluidRemovedMl: actualFluidRemovedMl,
                 notes: notes,
                 symptoms: symptoms,
+                status: status,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,

@@ -1455,5 +1455,108 @@ void main() {
       expect(postDeleteList.length, equals(2));
       expect(postDeleteList.any((a) => a.id == accidentalAdmin.id), isFalse);
     });
+
+    test('End-to-End Clinical Workflow: Unified Hemodialysis Session Lifecycle & Intradialytic Monitoring (#15)', () async {
+      // 1. Setup Patient Profile with Prescribed Dry Weight & Vascular Access
+      final patient = await harness.createPatient(
+        name: 'Unified Dialysis Patient',
+        diagnosis: ClinicalCondition.hemodialysis.name,
+        prescribedDryWeightKg: 70.0,
+        dailyFluidAllowanceMl: 1500,
+        vascularAccessType: VascularAccessType.arteriovenousFistula.name,
+        fistulaArmLocation: AccessLocation.leftArm.name,
+      );
+
+      // 2. Pre-Dialysis Check-in: captures pre-weight, computes IDWG & UF Goal with rinseback allowance, inspects fistula
+      final checkInTime = DateTime.now().subtract(const Duration(hours: 4)).toUtc();
+      final session = await harness.recordPreDialysisCheckIn(
+        patientId: patient.id,
+        preWeightKg: 73.2,
+        volumeAllowanceMl: 300, // 300 mL rinseback / intra-treatment allowance
+        notes: 'Pre-session vitals stable',
+        startedAt: checkInTime,
+        thrillPresent: true,
+        bruitPresent: true,
+        rednessPresent: false,
+        swellingPresent: false,
+        dischargePresent: false,
+        painPresent: false,
+      );
+
+      expect(session.id, isNotEmpty);
+      expect(session.patientId, equals(patient.id));
+      expect(session.status, equals('inProgress'));
+      expect(session.preWeightKg, equals(73.2));
+      // First session IDWG: 73.2 - 70.0 = 3.2 kg
+      expect(session.calculatedInterdialyticWeightGainKg, equals(3.2));
+      // UF Goal: (3.2 * 1000) + 300 mL allowance = 3500 mL
+      expect(session.calculatedUltrafiltrationGoalMl, equals(3500));
+
+      // 3. Active Session Surveillance: query active session
+      final activeSession = await harness.getActiveDialysisSession(patient.id);
+      expect(activeSession, isNotNull);
+      expect(activeSession!.id, equals(session.id));
+      expect(activeSession.status, equals('inProgress'));
+
+      // 4. Post-Dialysis Checkout: completes continuous session entity with post-weight, variance, symptoms, and actual UF
+      final checkOutTime = DateTime.now().toUtc();
+      final completedSession = await harness.recordPostDialysisSession(
+        sessionId: session.id, // Operate on the single continuous entity
+        postWeightKg: 70.3,
+        actualFluidRemovedMl: 3450,
+        symptoms: ['muscle cramping', 'dizziness', 'headache', 'nausea', 'post-dialysis fatigue'],
+        notes: 'Mild leg cramps relieved by reducing UF rate at 3.5h',
+        endedAt: checkOutTime,
+      );
+
+      // Verify single continuous entity integrity
+      expect(completedSession.id, equals(session.id));
+      expect(completedSession.status, equals('completed'));
+      expect(completedSession.preWeightKg, equals(73.2));
+      expect(completedSession.postWeightKg, equals(70.3));
+      // Difference against Prescribed Dry Weight: 70.3 - 70.0 = +0.3 kg
+      expect(completedSession.calculatedPostWeightDifferenceKg, equals(0.3));
+      expect(completedSession.actualFluidRemovedMl, equals(3450));
+      expect(completedSession.symptoms, contains('muscle cramping'));
+      expect(completedSession.symptoms, contains('dizziness'));
+      expect(completedSession.symptoms, contains('headache'));
+      expect(completedSession.symptoms, contains('nausea'));
+      expect(completedSession.symptoms, contains('post-dialysis fatigue'));
+      expect(completedSession.endedAt, isNotNull);
+
+      // 5. Active session is cleared after checkout completion
+      final activeAfterCheckout = await harness.getActiveDialysisSession(patient.id);
+      expect(activeAfterCheckout, isNull);
+
+      // 6. Sequential Session: Interdialytic Weight Gain calculated against previous completed session post-weight
+      final nextSessionTime = DateTime.now().add(const Duration(days: 2)).toUtc();
+      final nextSession = await harness.recordPreDialysisCheckIn(
+        patientId: patient.id,
+        preWeightKg: 72.5,
+        volumeAllowanceMl: 200,
+        startedAt: nextSessionTime,
+      );
+
+      // IDWG: 72.5 - 70.3 (previous completed session post-weight) = 2.2 kg
+      expect(nextSession.calculatedInterdialyticWeightGainKg, equals(2.2));
+      // UF Goal: (72.5 - 70.0) * 1000 + 200 = 2700 mL
+      expect(nextSession.calculatedUltrafiltrationGoalMl, equals(2700));
+      expect(nextSession.status, equals('inProgress'));
+
+      // 7. Session Cancellation lifecycle
+      final cancelledSession = await harness.cancelDialysisSession(
+        nextSession.id,
+        reason: 'Severe hypotension during priming',
+      );
+      expect(cancelledSession.id, equals(nextSession.id));
+      expect(cancelledSession.status, equals('cancelled'));
+      expect(cancelledSession.endedAt, isNotNull);
+      expect(cancelledSession.notes, contains('Severe hypotension during priming'));
+
+      // Active session should be clear again
+      final activeAfterCancel = await harness.getActiveDialysisSession(patient.id);
+      expect(activeAfterCancel, isNull);
+    });
   });
 }
+

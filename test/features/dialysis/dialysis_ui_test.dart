@@ -272,6 +272,178 @@ void main() {
     );
 
     testWidgets(
+      'Post-dialysis session displays pre- and post-weights side by side, records full intradialytic recovery symptoms, and completes session',
+      (WidgetTester tester) async {
+        final patient = await harness.createPatient(
+          name: 'SideBySide Weight Patient',
+          diagnosis: ClinicalCondition.hemodialysis.name,
+          prescribedDryWeightKg: 70.0,
+          vascularAccessType: VascularAccessType.arteriovenousFistula.name,
+          fistulaArmLocation: AccessLocation.leftArm.name,
+        );
+
+        // Pre-dialysis session initiated at 72.8 kg
+        final session = await harness.recordDialysisSession(
+          patientId: patient.id,
+          sessionType: 'hemodialysis',
+          startedAt: DateTime.now().subtract(const Duration(hours: 3, minutes: 45)),
+          preWeightKg: 72.8,
+          calculatedInterdialyticWeightGainKg: 2.8,
+          calculatedUltrafiltrationGoalMl: 3100,
+        );
+
+        await tester.pumpWidget(
+          createTestApp(
+            home: HemodialysisPostSessionScreen(
+              patient: patient,
+              existingSession: session,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // 1. Verify side-by-side weight comparison card exists
+        expect(find.byKey(const Key('session_summary_weights_side_by_side')), findsOneWidget);
+        expect(find.byKey(const Key('summary_pre_weight_text')), findsOneWidget);
+        expect(find.text('72.8 kg'), findsWidgets);
+
+        // 2. Enter post-weight
+        await tester.enterText(find.byKey(const Key('post_weight_input')), '70.2');
+        await tester.enterText(find.byKey(const Key('fluid_removed_input')), '2900');
+        await tester.pumpAndSettle();
+
+        // Verify side-by-side post-weight updates
+        expect(find.byKey(const Key('summary_post_weight_text')), findsOneWidget);
+        expect(find.text('70.2 kg'), findsWidgets);
+
+        // 3. Verify and select all 5 intradialytic recovery symptoms specified in Issue #15
+        expect(find.byKey(const Key('symptom_cramping_chip')), findsOneWidget);
+        expect(find.byKey(const Key('symptom_dizziness_chip')), findsOneWidget);
+        expect(find.byKey(const Key('symptom_headache_chip')), findsOneWidget);
+        expect(find.byKey(const Key('symptom_nausea_chip')), findsOneWidget);
+        expect(find.byKey(const Key('symptom_fatigue_chip')), findsOneWidget);
+
+        await tester.ensureVisible(find.byKey(const Key('symptom_cramping_chip')));
+        await tester.tap(find.byKey(const Key('symptom_cramping_chip')));
+        await tester.ensureVisible(find.byKey(const Key('symptom_dizziness_chip')));
+        await tester.tap(find.byKey(const Key('symptom_dizziness_chip')));
+        await tester.ensureVisible(find.byKey(const Key('symptom_headache_chip')));
+        await tester.tap(find.byKey(const Key('symptom_headache_chip')));
+        await tester.ensureVisible(find.byKey(const Key('symptom_nausea_chip')));
+        await tester.tap(find.byKey(const Key('symptom_nausea_chip')));
+        await tester.ensureVisible(find.byKey(const Key('symptom_fatigue_chip')));
+        await tester.tap(find.byKey(const Key('symptom_fatigue_chip')));
+        await tester.pumpAndSettle();
+
+        // 4. Submit post-dialysis completion
+        final saveBtn = find.byKey(const Key('save_post_session_button'));
+        await tester.ensureVisible(saveBtn);
+        await tester.tap(saveBtn);
+        await tester.pumpAndSettle();
+
+        // 5. Verify database session updated to completed with all symptoms
+        final dbSession = await (harness.database.select(harness.database.dialysisSessions)
+              ..where((tbl) => tbl.id.equals(session.id)))
+            .getSingle();
+
+        expect(dbSession.status, equals('completed'));
+        expect(dbSession.postWeightKg, equals(70.2));
+        expect(dbSession.actualFluidRemovedMl, equals(2900));
+        expect(dbSession.symptoms, contains('cramping'));
+        expect(dbSession.symptoms, contains('dizziness'));
+        expect(dbSession.symptoms, contains('headache'));
+        expect(dbSession.symptoms, contains('nausea'));
+        expect(dbSession.symptoms, contains('fatigue'));
+      },
+    );
+
+    testWidgets(
+      'Active in-progress dialysis session displays alert banner on DashboardScreen with 1-tap resume',
+      (WidgetTester tester) async {
+        final patient = await harness.createPatient(
+          name: 'Banner Test Patient',
+          diagnosis: ClinicalCondition.hemodialysis.name,
+          prescribedDryWeightKg: 68.0,
+          vascularAccessType: VascularAccessType.arteriovenousFistula.name,
+          fistulaArmLocation: AccessLocation.leftArm.name,
+        );
+
+        // Record check-in to initiate an in-progress session
+        final session = await harness.recordPreDialysisCheckIn(
+          patientId: patient.id,
+          preWeightKg: 70.8,
+          volumeAllowanceMl: 250,
+        );
+        expect(session.status, equals('inProgress'));
+
+        await tester.pumpWidget(
+          createTestApp(
+            home: DashboardScreen(patient: patient),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // 1. Verify Active Session alert banner surfaces prominently on Dashboard
+        expect(find.byKey(const Key('active_dialysis_session_banner')), findsOneWidget);
+        expect(find.text('Dialysis Session In Progress'), findsOneWidget);
+        expect(find.textContaining('70.8 kg'), findsWidgets);
+        expect(find.byKey(const Key('resume_dialysis_session_button')), findsOneWidget);
+
+        // 2. Tap resume button -> 1-tap navigation to HemodialysisPostSessionScreen
+        await tester.tap(find.byKey(const Key('resume_dialysis_session_button')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(HemodialysisPostSessionScreen), findsOneWidget);
+        expect(find.text('Post-Dialysis Session Log'), findsOneWidget);
+        expect(find.text('70.8 kg'), findsWidgets);
+      },
+    );
+
+    testWidgets(
+      'HemodialysisPostSessionScreen allows cancelling an in-progress session',
+      (WidgetTester tester) async {
+        final patient = await harness.createPatient(
+          name: 'Cancel UI Patient',
+          diagnosis: ClinicalCondition.hemodialysis.name,
+          prescribedDryWeightKg: 72.0,
+        );
+
+        final session = await harness.recordPreDialysisCheckIn(
+          patientId: patient.id,
+          preWeightKg: 74.5,
+        );
+
+        await tester.pumpWidget(
+          createTestApp(
+            home: HemodialysisPostSessionScreen(
+              patient: patient,
+              existingSession: session,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('cancel_dialysis_session_button')), findsOneWidget);
+        await tester.ensureVisible(find.byKey(const Key('cancel_dialysis_session_button')));
+        await tester.tap(find.byKey(const Key('cancel_dialysis_session_button')));
+        await tester.pumpAndSettle();
+
+        // Confirmation dialog appears
+        expect(find.text('Cancel Dialysis Session?'), findsOneWidget);
+        final confirmBtn = find.byKey(const Key('confirm_cancel_session_button'));
+        await tester.tap(confirmBtn);
+        await tester.pumpAndSettle();
+
+        // Verify status in DB changed to cancelled
+        final dbSession = await (harness.database.select(harness.database.dialysisSessions)
+              ..where((tbl) => tbl.id.equals(session.id)))
+            .getSingle();
+        expect(dbSession.status, equals('cancelled'));
+      },
+    );
+
+
+    testWidgets(
       'Dashboard cards Check-in and Post-Dialysis Log navigate to respective screens',
       (WidgetTester tester) async {
         await harness.createPatient(

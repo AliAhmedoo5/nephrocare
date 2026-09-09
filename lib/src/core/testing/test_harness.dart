@@ -197,6 +197,16 @@ class NephroTestHarness {
     return DialysisSessionRepository(database).getSessions(patientId);
   }
 
+  /// Clinical helper to query the active (inProgress) dialysis session for a patient.
+  Future<DialysisSession?> getActiveDialysisSession(String patientId) async {
+    return DialysisSessionRepository(database).getActiveSession(patientId);
+  }
+
+  /// Clinical helper to cancel an in-progress dialysis session.
+  Future<DialysisSession> cancelDialysisSession(String sessionId, {String? reason}) async {
+    return DialysisSessionRepository(database).cancelDialysisSession(sessionId, reason: reason);
+  }
+
   /// Clinical helper to record a Peritoneal Dialysis exchange.
   Future<DialysisSession> recordPeritonealExchange({
     String? id,

@@ -146,6 +146,62 @@ class _HemodialysisPostSessionScreenState extends ConsumerState<HemodialysisPost
     }
   }
 
+  Future<void> _cancelSession(DialysisSession activeSession) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel Dialysis Session?'),
+        content: const Text(
+          'Are you sure you want to cancel this dialysis session? The session will be marked as cancelled.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Keep Session'),
+          ),
+          FilledButton(
+            key: const Key('confirm_cancel_session_button'),
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Cancel Session'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        final repo = ref.read(dialysisSessionRepositoryProvider);
+        await repo.cancelDialysisSession(
+          activeSession.id,
+          reason: _notesController.text.trim().isNotEmpty
+              ? _notesController.text.trim()
+              : 'Session cancelled by user',
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Dialysis session cancelled.'),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          Navigator.of(context).pop();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to cancel session: $e'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -252,6 +308,73 @@ class _HemodialysisPostSessionScreenState extends ConsumerState<HemodialysisPost
                             ],
                           ),
                         ],
+                        const SizedBox(height: 12),
+                        // Side-by-side pre-weight and post-weight summary container
+                        Container(
+                          key: const Key('session_summary_weights_side_by_side'),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: theme.colorScheme.outlineVariant),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      'Pre-Weight',
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      activeSession?.preWeightKg != null
+                                          ? '${activeSession!.preWeightKg} kg'
+                                          : '-- kg',
+                                      key: const Key('summary_pre_weight_text'),
+                                      style: theme.textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                height: 32,
+                                width: 1,
+                                color: theme.colorScheme.outlineVariant,
+                              ),
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      'Post-Weight',
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _currentPostWeight != null
+                                          ? '$_currentPostWeight kg'
+                                          : (activeSession?.postWeightKg != null
+                                              ? '${activeSession!.postWeightKg} kg'
+                                              : '-- kg'),
+                                      key: const Key('summary_post_weight_text'),
+                                      style: theme.textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -407,6 +530,21 @@ class _HemodialysisPostSessionScreenState extends ConsumerState<HemodialysisPost
                             value: 'dizziness',
                           ),
                           _buildSymptomFilterChip(
+                            key: const Key('symptom_headache_chip'),
+                            label: 'Headache',
+                            value: 'headache',
+                          ),
+                          _buildSymptomFilterChip(
+                            key: const Key('symptom_nausea_chip'),
+                            label: 'Nausea',
+                            value: 'nausea',
+                          ),
+                          _buildSymptomFilterChip(
+                            key: const Key('symptom_fatigue_chip'),
+                            label: 'Post-Dialysis Fatigue',
+                            value: 'fatigue',
+                          ),
+                          _buildSymptomFilterChip(
                             key: const Key('symptom_hypotension_chip'),
                             label: 'Hypotension (Low BP)',
                             value: 'hypotension',
@@ -454,6 +592,23 @@ class _HemodialysisPostSessionScreenState extends ConsumerState<HemodialysisPost
                           ),
                         ),
                       ),
+                      if (activeSession != null && activeSession.status != 'cancelled') ...[
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          height: 48,
+                          child: OutlinedButton.icon(
+                            key: const Key('cancel_dialysis_session_button'),
+                            onPressed: _isSubmitting ? null : () => _cancelSession(activeSession),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: theme.colorScheme.error,
+                              side: BorderSide(color: theme.colorScheme.error),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            icon: const Icon(Icons.cancel_outlined),
+                            label: const Text('Cancel Session'),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 24),
                     ],
                   ),
