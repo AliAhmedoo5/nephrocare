@@ -48,15 +48,58 @@ void main() {
         actualFluidRemovedMl: 2100,
         notes: 'Smooth treatment',
         symptoms: 'none',
+        status: 'completed',
+        createdAt: t0,
+        updatedAt: t0,
       );
 
-      await h.recordBloodPressure(
+      await h.createMedication(
         patientId: patient.id,
-        systolic: 126,
-        diastolic: 82,
-        pulse: 68,
+        name: 'Calcium Acetate',
+        dosage: '667mg',
+        frequency: 'TID with meals',
+        isPhosphateBinder: true,
+        createdAt: t0,
+        updatedAt: t0,
+      );
+
+      final antiHypertensive = await h.createMedication(
+        patientId: patient.id,
+        name: 'Losartan Potassium',
+        dosage: '50mg',
+        frequency: 'Daily',
+        isAntiHypertensive: true,
+        createdAt: t0,
+        updatedAt: t0,
+      );
+
+      final admin = await h.recordMedicationAdministration(
+        patientId: patient.id,
+        medicationId: antiHypertensive.id,
+        medicationName: antiHypertensive.name,
+        dosage: antiHypertensive.dosage,
+        administeredAt: t0,
+      );
+
+      final baselineBp = await h.recordBaselineBloodPressure(
+        patientId: patient.id,
+        medicationAdministrationId: admin.id,
+        medicationName: antiHypertensive.name,
+        systolic: 150,
+        diastolic: 92,
+        pulse: 74,
         armUsed: 'rightArm',
         recordedAt: t0,
+      );
+
+      await h.recordFollowUpBloodPressure(
+        patientId: patient.id,
+        pairedAssessmentId: baselineBp.pairedAssessmentId!,
+        systolic: 132,
+        diastolic: 80,
+        pulse: 70,
+        armUsed: 'rightArm',
+        recordedAt: t0.add(const Duration(minutes: 30)),
       );
 
       await h.recordFluidIntake(
@@ -79,9 +122,15 @@ void main() {
         patientId: patient.id,
         catheterType: 'foley',
         insertionDate: t0,
-        replacementDueDate: t0.add(const Duration(days: 14)),
+        replacementDueDate: t0.add(const Duration(days: 30)),
         status: 'active',
         notes: 'Silicone 16Fr',
+        material: 'silicone30Day',
+        lifespanDays: 30,
+        bagEmptyingIntervalHours: 6,
+        lastBagEmptiedAt: t0,
+        createdAt: t0,
+        updatedAt: t0,
       );
 
       await h.recordAccessInspection(
@@ -125,8 +174,10 @@ void main() {
       final mergeResult = await targetHarness.mergePatientSyncBundle(receivedBundle, asCaregiverMirror: true);
 
       expect(mergeResult.patientsInserted, equals(1));
+      expect(mergeResult.medicationsInserted, equals(2));
+      expect(mergeResult.medicationAdministrationsInserted, equals(1));
       expect(mergeResult.dialysisSessionsInserted, equals(1));
-      expect(mergeResult.bloodPressureLogsInserted, equals(1));
+      expect(mergeResult.bloodPressureLogsInserted, equals(2));
       expect(mergeResult.fluidIntakeLogsInserted, equals(1));
       expect(mergeResult.fluidOutputLogsInserted, equals(1));
       expect(mergeResult.catheterEventsInserted, equals(1));
@@ -141,10 +192,28 @@ void main() {
       final targetSessions = await targetHarness.getDialysisSessions(patientId);
       expect(targetSessions.length, equals(1));
       expect(targetSessions.first.calculatedUltrafiltrationGoalMl, equals(2200));
+      expect(targetSessions.first.status, equals('completed'));
+
+      final targetMeds = await targetHarness.getAllMedications(patientId);
+      expect(targetMeds.length, equals(2));
+      expect(targetMeds.any((m) => m.name == 'Calcium Acetate' && m.isPhosphateBinder), isTrue);
+      expect(targetMeds.any((m) => m.name == 'Losartan Potassium' && m.isAntiHypertensive), isTrue);
+
+      final targetAdmins = await targetHarness.getMedicationAdministrations(patientId);
+      expect(targetAdmins.length, equals(1));
+      expect(targetAdmins.first.medicationName, equals('Losartan Potassium'));
 
       final targetBp = await targetHarness.getBloodPressureLogs(patientId);
-      expect(targetBp.length, equals(1));
-      expect(targetBp.first.systolic, equals(126));
+      expect(targetBp.length, equals(2));
+      final followUp = targetBp.firstWhere((b) => b.pairedRole == 'followUp');
+      expect(followUp.systolic, equals(132));
+      expect(followUp.systolicDelta, equals(-18));
+
+      final targetCatheter = await targetHarness.getActiveCatheter(patientId);
+      expect(targetCatheter, isNotNull);
+      expect(targetCatheter!.material, equals('silicone30Day'));
+      expect(targetCatheter.lifespanDays, equals(30));
+      expect(targetCatheter.bagEmptyingIntervalHours, equals(6));
 
       final targetInspections = await targetHarness.getAccessInspections(patientId);
       expect(targetInspections.length, equals(1));
@@ -174,10 +243,17 @@ void main() {
       // Ingest into target database
       final mergeResult = await targetHarness.mergePatientSyncBundle(receivedBundle);
       expect(mergeResult.patientsInserted, equals(1));
+      expect(mergeResult.medicationsInserted, equals(2));
+      expect(mergeResult.medicationAdministrationsInserted, equals(1));
       expect(mergeResult.dialysisSessionsInserted, equals(1));
+      expect(mergeResult.bloodPressureLogsInserted, equals(2));
+      expect(mergeResult.catheterEventsInserted, equals(1));
 
       final targetPatient = await targetHarness.getPatient(patientId);
       expect(targetPatient!.name, equals('Margaret Hamilton'));
+
+      final targetMeds = await targetHarness.getAllMedications(patientId);
+      expect(targetMeds.length, equals(2));
     });
 
     test('Channel 3: Encrypted Patient Export (.nephro) round-trip file export, AES decryption, and Drift merge', () async {
@@ -192,11 +268,19 @@ void main() {
 
       final mergeResult = await targetHarness.mergePatientSyncBundle(decryptedBundle, asCaregiverMirror: true);
       expect(mergeResult.patientsInserted, equals(1));
+      expect(mergeResult.medicationsInserted, equals(2));
+      expect(mergeResult.medicationAdministrationsInserted, equals(1));
+      expect(mergeResult.dialysisSessionsInserted, equals(1));
+      expect(mergeResult.bloodPressureLogsInserted, equals(2));
       expect(mergeResult.accessInspectionsInserted, equals(1));
 
       final targetPatient = await targetHarness.getPatient(patientId);
       expect(targetPatient!.name, equals('Margaret Hamilton'));
       expect(targetPatient.isCaregiverMirror, isTrue);
+
+      final targetAdmins = await targetHarness.getMedicationAdministrations(patientId);
+      expect(targetAdmins.length, equals(1));
+      expect(targetAdmins.first.medicationName, equals('Losartan Potassium'));
     });
   });
 }

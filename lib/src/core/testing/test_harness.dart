@@ -120,6 +120,9 @@ class NephroTestHarness {
     int? actualFluidRemovedMl,
     String? notes,
     String? symptoms,
+    String status = 'completed',
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) async {
     final sessionId = id ?? generateUuid();
     final companion = DialysisSessionsCompanion.insert(
@@ -136,6 +139,9 @@ class NephroTestHarness {
       actualFluidRemovedMl: drift.Value(actualFluidRemovedMl),
       notes: drift.Value(notes),
       symptoms: drift.Value(symptoms),
+      status: drift.Value(status),
+      createdAt: createdAt != null ? drift.Value(createdAt) : const drift.Value.absent(),
+      updatedAt: updatedAt != null ? drift.Value(updatedAt) : const drift.Value.absent(),
     );
     await database.into(database.dialysisSessions).insert(companion);
     return (database.select(database.dialysisSessions)..where((tbl) => tbl.id.equals(sessionId))).getSingle();
@@ -450,6 +456,12 @@ class NephroTestHarness {
     required DateTime replacementDueDate,
     required String status,
     String? notes,
+    String material = 'latex14Day',
+    int lifespanDays = 14,
+    int? bagEmptyingIntervalHours,
+    DateTime? lastBagEmptiedAt,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) async {
     final catheterId = id ?? generateUuid();
     final companion = CatheterEventsCompanion.insert(
@@ -460,6 +472,12 @@ class NephroTestHarness {
       replacementDueDate: replacementDueDate,
       status: status,
       notes: drift.Value(notes),
+      material: drift.Value(material),
+      lifespanDays: drift.Value(lifespanDays),
+      bagEmptyingIntervalHours: drift.Value(bagEmptyingIntervalHours),
+      lastBagEmptiedAt: drift.Value(lastBagEmptiedAt),
+      createdAt: createdAt != null ? drift.Value(createdAt) : const drift.Value.absent(),
+      updatedAt: updatedAt != null ? drift.Value(updatedAt) : const drift.Value.absent(),
     );
     await database.into(database.catheterEvents).insert(companion);
     return (database.select(database.catheterEvents)..where((tbl) => tbl.id.equals(catheterId))).getSingle();

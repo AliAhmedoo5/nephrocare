@@ -14,12 +14,14 @@ class PatientSyncBundle {
   final List<FluidOutputLog> fluidOutputLogs;
   final List<CatheterEvent> catheterEvents;
   final List<AccessInspection> accessInspections;
+  final List<Medication> medications;
+  final List<MedicationAdministration> medicationAdministrations;
 
   /// Convenience getter for single-patient operations.
   Patient get patient => patients.first;
 
   PatientSyncBundle({
-    this.schemaVersion = 1,
+    this.schemaVersion = 2,
     required this.exportedAt,
     List<Patient>? patients,
     Patient? patient,
@@ -29,6 +31,8 @@ class PatientSyncBundle {
     this.fluidOutputLogs = const [],
     this.catheterEvents = const [],
     this.accessInspections = const [],
+    this.medications = const [],
+    this.medicationAdministrations = const [],
   }) : patients = patients ?? (patient != null ? [patient] : const []);
 
   /// Gathers clinical records for a given patient or the entire multi-patient database.
@@ -43,6 +47,8 @@ class PatientSyncBundle {
     final List<FluidOutputLog> outputLogs;
     final List<CatheterEvent> catheters;
     final List<AccessInspection> inspections;
+    final List<Medication> meds;
+    final List<MedicationAdministration> admins;
 
     if (patientId != null) {
       final p = await (database.select(database.patients)
@@ -67,6 +73,12 @@ class PatientSyncBundle {
       inspections = await (database.select(database.accessInspections)
             ..where((tbl) => tbl.patientId.equals(patientId)))
           .get();
+      meds = await (database.select(database.medications)
+            ..where((tbl) => tbl.patientId.equals(patientId)))
+          .get();
+      admins = await (database.select(database.medicationAdministrations)
+            ..where((tbl) => tbl.patientId.equals(patientId)))
+          .get();
     } else {
       patients = await database.select(database.patients).get();
       sessions = await database.select(database.dialysisSessions).get();
@@ -75,10 +87,12 @@ class PatientSyncBundle {
       outputLogs = await database.select(database.fluidOutputLogs).get();
       catheters = await database.select(database.catheterEvents).get();
       inspections = await database.select(database.accessInspections).get();
+      meds = await database.select(database.medications).get();
+      admins = await database.select(database.medicationAdministrations).get();
     }
 
     return PatientSyncBundle(
-      schemaVersion: 1,
+      schemaVersion: 2,
       exportedAt: DateTime.now().toUtc(),
       patients: patients,
       dialysisSessions: sessions,
@@ -87,6 +101,8 @@ class PatientSyncBundle {
       fluidOutputLogs: outputLogs,
       catheterEvents: catheters,
       accessInspections: inspections,
+      medications: meds,
+      medicationAdministrations: admins,
     );
   }
 
@@ -101,6 +117,9 @@ class PatientSyncBundle {
         'fluidOutputLogs': fluidOutputLogs.map((e) => e.toJson()).toList(),
         'catheterEvents': catheterEvents.map((e) => e.toJson()).toList(),
         'accessInspections': accessInspections.map((e) => e.toJson()).toList(),
+        'medications': medications.map((e) => e.toJson()).toList(),
+        'medicationAdministrations':
+            medicationAdministrations.map((e) => e.toJson()).toList(),
       };
 
   /// Constructs a [PatientSyncBundle] from a serialized JSON map.
@@ -120,7 +139,7 @@ class PatientSyncBundle {
     }
 
     return PatientSyncBundle(
-      schemaVersion: json['schemaVersion'] as int? ?? 1,
+      schemaVersion: json['schemaVersion'] as int? ?? 2,
       exportedAt: DateTime.parse(json['exportedAt'] as String),
       patients: parsedPatients,
       dialysisSessions: (json['dialysisSessions'] as List<dynamic>? ?? [])
@@ -141,6 +160,14 @@ class PatientSyncBundle {
       accessInspections: (json['accessInspections'] as List<dynamic>? ?? [])
           .map((e) => AccessInspection.fromJson(e as Map<String, dynamic>))
           .toList(),
+      medications: (json['medications'] as List<dynamic>? ?? [])
+          .map((e) => Medication.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      medicationAdministrations:
+          (json['medicationAdministrations'] as List<dynamic>? ?? [])
+              .map((e) =>
+                  MedicationAdministration.fromJson(e as Map<String, dynamic>))
+              .toList(),
     );
   }
 }

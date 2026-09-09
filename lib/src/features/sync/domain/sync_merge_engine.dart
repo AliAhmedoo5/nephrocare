@@ -6,6 +6,10 @@ import 'patient_sync_bundle.dart';
 class SyncMergeResult {
   final int patientsInserted;
   final int patientsUpdated;
+  final int medicationsInserted;
+  final int medicationsUpdated;
+  final int medicationAdministrationsInserted;
+  final int medicationAdministrationsUpdated;
   final int dialysisSessionsInserted;
   final int dialysisSessionsUpdated;
   final int bloodPressureLogsInserted;
@@ -23,6 +27,10 @@ class SyncMergeResult {
   const SyncMergeResult({
     this.patientsInserted = 0,
     this.patientsUpdated = 0,
+    this.medicationsInserted = 0,
+    this.medicationsUpdated = 0,
+    this.medicationAdministrationsInserted = 0,
+    this.medicationAdministrationsUpdated = 0,
     this.dialysisSessionsInserted = 0,
     this.dialysisSessionsUpdated = 0,
     this.bloodPressureLogsInserted = 0,
@@ -40,6 +48,8 @@ class SyncMergeResult {
 
   int get totalInserted =>
       patientsInserted +
+      medicationsInserted +
+      medicationAdministrationsInserted +
       dialysisSessionsInserted +
       bloodPressureLogsInserted +
       fluidIntakeLogsInserted +
@@ -49,6 +59,8 @@ class SyncMergeResult {
 
   int get totalUpdated =>
       patientsUpdated +
+      medicationsUpdated +
+      medicationAdministrationsUpdated +
       dialysisSessionsUpdated +
       bloodPressureLogsUpdated +
       fluidIntakeLogsUpdated +
@@ -77,6 +89,10 @@ class SyncMergeEngine {
   }) async {
     int patientsInserted = 0;
     int patientsUpdated = 0;
+    int medicationsInserted = 0;
+    int medicationsUpdated = 0;
+    int medicationAdministrationsInserted = 0;
+    int medicationAdministrationsUpdated = 0;
     int dialysisSessionsInserted = 0;
     int dialysisSessionsUpdated = 0;
     int bloodPressureLogsInserted = 0;
@@ -137,7 +153,99 @@ class SyncMergeEngine {
         }
       }
 
-      // 2. Merge Dialysis Sessions
+      // 2. Merge Medications (ensures parents exist before administrations)
+      for (final med in bundle.medications) {
+        final existing = await (database.select(database.medications)
+              ..where((tbl) => tbl.id.equals(med.id)))
+            .getSingleOrNull();
+
+        if (existing == null) {
+          await database.into(database.medications).insert(
+                MedicationsCompanion.insert(
+                  id: Value(med.id),
+                  patientId: med.patientId,
+                  name: med.name,
+                  dosage: med.dosage,
+                  frequency: med.frequency,
+                  instructions: Value(med.instructions),
+                  isPhosphateBinder: Value(med.isPhosphateBinder),
+                  isAntiHypertensive: Value(med.isAntiHypertensive),
+                  isActive: Value(med.isActive),
+                  createdAt: Value(med.createdAt),
+                  updatedAt: Value(med.updatedAt),
+                ),
+              );
+          medicationsInserted++;
+        } else {
+          if (med.updatedAt.isAfter(existing.updatedAt)) {
+            await (database.update(database.medications)
+                  ..where((tbl) => tbl.id.equals(med.id)))
+                .write(
+              MedicationsCompanion(
+                name: Value(med.name),
+                dosage: Value(med.dosage),
+                frequency: Value(med.frequency),
+                instructions: Value(med.instructions),
+                isPhosphateBinder: Value(med.isPhosphateBinder),
+                isAntiHypertensive: Value(med.isAntiHypertensive),
+                isActive: Value(med.isActive),
+                updatedAt: Value(med.updatedAt),
+              ),
+            );
+            medicationsUpdated++;
+          } else {
+            recordsSkipped++;
+          }
+        }
+      }
+
+      // 3. Merge Medication Administrations (relies on Medications and Patients)
+      for (final admin in bundle.medicationAdministrations) {
+        final existing = await (database.select(database.medicationAdministrations)
+              ..where((tbl) => tbl.id.equals(admin.id)))
+            .getSingleOrNull();
+
+        if (existing == null) {
+          await database.into(database.medicationAdministrations).insert(
+                MedicationAdministrationsCompanion.insert(
+                  id: Value(admin.id),
+                  patientId: admin.patientId,
+                  medicationId: admin.medicationId,
+                  medicationName: admin.medicationName,
+                  dosage: admin.dosage,
+                  administeredAt: admin.administeredAt,
+                  notes: Value(admin.notes),
+                  isPhosphateBinder: Value(admin.isPhosphateBinder),
+                  isAntiHypertensive: Value(admin.isAntiHypertensive),
+                  createdAt: Value(admin.createdAt),
+                  updatedAt: Value(admin.updatedAt),
+                ),
+              );
+          medicationAdministrationsInserted++;
+        } else {
+          if (admin.updatedAt.isAfter(existing.updatedAt)) {
+            await (database.update(database.medicationAdministrations)
+                  ..where((tbl) => tbl.id.equals(admin.id)))
+                .write(
+              MedicationAdministrationsCompanion(
+                medicationId: Value(admin.medicationId),
+                medicationName: Value(admin.medicationName),
+                dosage: Value(admin.dosage),
+                administeredAt: Value(admin.administeredAt),
+                notes: Value(admin.notes),
+                isPhosphateBinder: Value(admin.isPhosphateBinder),
+                isAntiHypertensive: Value(admin.isAntiHypertensive),
+                updatedAt: Value(admin.updatedAt),
+              ),
+            );
+            medicationAdministrationsUpdated++;
+          } else {
+            recordsSkipped++;
+          }
+        }
+      }
+
+      // 4. Merge Dialysis Sessions
       for (final session in bundle.dialysisSessions) {
         final existing = await (database.select(database.dialysisSessions)
               ..where((tbl) => tbl.id.equals(session.id)))
@@ -162,6 +270,7 @@ class SyncMergeEngine {
                   actualFluidRemovedMl: Value(session.actualFluidRemovedMl),
                   notes: Value(session.notes),
                   symptoms: Value(session.symptoms),
+                  status: Value(session.status),
                   createdAt: Value(session.createdAt),
                   updatedAt: Value(session.updatedAt),
                 ),
@@ -187,6 +296,7 @@ class SyncMergeEngine {
                 actualFluidRemovedMl: Value(session.actualFluidRemovedMl),
                 notes: Value(session.notes),
                 symptoms: Value(session.symptoms),
+                status: Value(session.status),
                 updatedAt: Value(session.updatedAt),
               ),
             );
@@ -197,7 +307,7 @@ class SyncMergeEngine {
         }
       }
 
-      // 3. Merge Blood Pressure Logs
+      // 5. Merge Blood Pressure Logs
       for (final bp in bundle.bloodPressureLogs) {
         final existing = await (database.select(database.bloodPressureLogs)
               ..where((tbl) => tbl.id.equals(bp.id)))
@@ -257,7 +367,7 @@ class SyncMergeEngine {
         }
       }
 
-      // 4. Merge Fluid Intake Logs
+      // 6. Merge Fluid Intake Logs
       for (final intake in bundle.fluidIntakeLogs) {
         final existing = await (database.select(database.fluidIntakeLogs)
               ..where((tbl) => tbl.id.equals(intake.id)))
@@ -297,7 +407,7 @@ class SyncMergeEngine {
         }
       }
 
-      // 5. Merge Fluid Output Logs
+      // 7. Merge Fluid Output Logs
       for (final output in bundle.fluidOutputLogs) {
         final existing = await (database.select(database.fluidOutputLogs)
               ..where((tbl) => tbl.id.equals(output.id)))
@@ -337,7 +447,7 @@ class SyncMergeEngine {
         }
       }
 
-      // 6. Merge Catheter Events
+      // 8. Merge Catheter Events
       for (final catheter in bundle.catheterEvents) {
         final existing = await (database.select(database.catheterEvents)
               ..where((tbl) => tbl.id.equals(catheter.id)))
@@ -387,7 +497,7 @@ class SyncMergeEngine {
         }
       }
 
-      // 7. Merge Access Inspections
+      // 9. Merge Access Inspections
       for (final inspection in bundle.accessInspections) {
         final existing = await (database.select(database.accessInspections)
               ..where((tbl) => tbl.id.equals(inspection.id)))
@@ -443,6 +553,10 @@ class SyncMergeEngine {
     return SyncMergeResult(
       patientsInserted: patientsInserted,
       patientsUpdated: patientsUpdated,
+      medicationsInserted: medicationsInserted,
+      medicationsUpdated: medicationsUpdated,
+      medicationAdministrationsInserted: medicationAdministrationsInserted,
+      medicationAdministrationsUpdated: medicationAdministrationsUpdated,
       dialysisSessionsInserted: dialysisSessionsInserted,
       dialysisSessionsUpdated: dialysisSessionsUpdated,
       bloodPressureLogsInserted: bloodPressureLogsInserted,
