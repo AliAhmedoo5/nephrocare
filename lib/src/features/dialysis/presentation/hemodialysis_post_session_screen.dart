@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/app_database.dart';
 import '../data/dialysis_session_repository.dart';
 import '../domain/hemodialysis_calculation_rules.dart';
+import 'weight_trends_screen.dart';
 
 /// Post-dialysis session logging screen.
 ///
@@ -188,12 +189,29 @@ class _HemodialysisPostSessionScreenState extends ConsumerState<HemodialysisPost
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Icon(Icons.assignment_turned_in_rounded, color: theme.colorScheme.primary),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Session Overview',
-                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                            Row(
+                              children: [
+                                Icon(Icons.assignment_turned_in_rounded, color: theme.colorScheme.primary),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Session Overview',
+                                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                            TextButton.icon(
+                              key: const Key('view_weight_trends_post_button'),
+                              icon: const Icon(Icons.show_chart_rounded, size: 18),
+                              label: const Text('Trends'),
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => WeightTrendsScreen(patient: widget.patient),
+                                  ),
+                                );
+                              },
                             ),
                           ],
                         ),

@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nephrocare/src/core/testing/test_harness.dart';
 import 'package:nephrocare/src/features/dialysis/data/dialysis_session_repository.dart';
 import 'package:nephrocare/src/features/dialysis/domain/hemodialysis_calculation_rules.dart';
+import 'package:nephrocare/src/features/fluid/data/fluid_repository.dart';
 import 'package:nephrocare/src/features/profile/domain/clinical_condition.dart';
 
 void main() {
@@ -43,7 +44,7 @@ void main() {
 
       test('calculates Ultrafiltration Goal with volume allowances', () {
         // Pre-weight: 72.5 kg, Prescribed Dry Weight: 70.0 kg
-        // Base weight to remove = 2.5 kg = 2500 mL
+        // Fluid excess to remove = 2.5 kg = 2500 mL
         // Volume allowance = 300 mL (e.g. rinseback/infusion)
         // Total UF Goal = 2500 + 300 = 2800 mL
         final ufGoal = HemodialysisCalculationRules.calculateUltrafiltrationGoal(
@@ -218,6 +219,122 @@ void main() {
         expect(completedSession2.calculatedPostWeightDifferenceKg, equals(-0.2));
         expect(completedSession2.symptoms, contains('dizziness'));
         expect(completedSession2.symptoms, contains('hypotension'));
+      });
+
+      test('recordAccessInspection persists standalone inspection and streams longitudinal timeline', () async {
+        final patient = await harness.createPatient(
+          name: 'Access Test Patient',
+          diagnosis: 'peritonealDialysis',
+          vascularAccessType: 'peritonealDialysisAccess',
+          fistulaArmLocation: 'abdomen',
+        );
+
+        final now = DateTime.now().toUtc();
+        final inspection1 = await repository.recordAccessInspection(
+          patientId: patient.id,
+          accessType: 'peritonealDialysisAccess',
+          anatomicalLocation: 'abdomen',
+          rednessPresent: false,
+          swellingPresent: false,
+          dischargePresent: false,
+          painPresent: false,
+          notes: 'Baseline healthy exit site',
+          recordedAt: now.subtract(const Duration(days: 2)),
+        );
+
+        expect(inspection1.id, isNotEmpty);
+        expect(inspection1.accessType, equals('peritonealDialysisAccess'));
+        expect(inspection1.rednessPresent, isFalse);
+
+        final inspection2 = await repository.recordAccessInspection(
+          patientId: patient.id,
+          accessType: 'peritonealDialysisAccess',
+          anatomicalLocation: 'abdomen',
+          rednessPresent: true,
+          swellingPresent: true,
+          dischargePresent: false,
+          painPresent: true,
+          notes: 'Erythema and swelling observed',
+          recordedAt: now,
+        );
+
+        expect(inspection2.id, isNotEmpty);
+        expect(inspection2.rednessPresent, isTrue);
+
+        // Verify longitudinal timeline ordering (most recent first)
+        final timeline = await repository.getAccessInspections(patient.id);
+        expect(timeline.length, equals(2));
+        expect(timeline.first.id, equals(inspection2.id));
+        expect(timeline.last.id, equals(inspection1.id));
+      });
+
+      test('recordPeritonealExchange computes peritoneal ultrafiltration and integrates into 24h fluid balance', () async {
+        final patient = await harness.createPatient(
+          name: 'PD Test Patient',
+          diagnosis: 'peritonealDialysis',
+          prescribedDryWeightKg: 70.0,
+          dailyFluidAllowanceMl: 1500,
+        );
+
+        final now = DateTime.now().toUtc();
+        // Record PD exchange: 2000 mL inflow, 2350 mL drain -> Net UF +350 mL
+        final exchange = await repository.recordPeritonealExchange(
+          patientId: patient.id,
+          inflowVolumeMl: 2000,
+          drainVolumeMl: 2350,
+          clarity: 'Clear',
+          notes: 'Standard morning exchange',
+          recordedAt: now,
+        );
+
+        expect(exchange.id, isNotEmpty);
+        expect(exchange.sessionType, equals('peritoneal'));
+        expect(exchange.actualFluidRemovedMl, equals(350));
+        expect(exchange.notes, contains('Inflow: 2000 mL'));
+        expect(exchange.notes, contains('Drain: 2350 mL'));
+        expect(exchange.notes, contains('Net UF: +350 mL'));
+        expect(exchange.notes, contains('Clarity: Clear'));
+
+        // Verify that 24h Fluid Balance reflects peritoneal ultrafiltration extraction
+        final fluidRepo = FluidRepository(harness.database);
+        // Add 1000 mL intake
+        await fluidRepo.recordFluidIntake(
+          patientId: patient.id,
+          volumeMl: 1000,
+          beverageType: 'Water',
+          recordedAt: now,
+        );
+
+        final balance = await fluidRepo.get24HourFluidBalance(patient.id, asOf: now);
+        expect(balance.totalIntakeMl, equals(1000));
+        expect(balance.totalOutputMl, equals(350));
+        // Net balance: 1000 - 350 = +650 mL
+        expect(balance.netBalanceMl, equals(650));
+      });
+
+      test('recordSymptomLog stores symptoms and notes for CKD / catheter surveillance', () async {
+        final patient = await harness.createPatient(
+          name: 'CKD Symptom Patient',
+          diagnosis: 'nonDialysisCkd',
+        );
+
+        final now = DateTime.now().toUtc();
+        final symptomLog = await repository.recordSymptomLog(
+          patientId: patient.id,
+          symptoms: ['fatigue', 'edema', 'loss_of_appetite'],
+          notes: 'Noticeable ankle swelling in the evening',
+          recordedAt: now,
+          sessionType: 'ckd_symptom',
+        );
+
+        expect(symptomLog.id, isNotEmpty);
+        expect(symptomLog.sessionType, equals('ckd_symptom'));
+        expect(symptomLog.symptoms, equals('fatigue, edema, loss_of_appetite'));
+        expect(symptomLog.notes, equals('Noticeable ankle swelling in the evening'));
+
+        final sessions = await repository.getSessions(patient.id);
+        expect(sessions.length, equals(1));
+        expect(sessions.first.symptoms, contains('edema'));
       });
     });
   });

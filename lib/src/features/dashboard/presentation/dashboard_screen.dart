@@ -5,8 +5,11 @@ import '../../../core/database/app_database.dart';
 import '../../blood_pressure/presentation/blood_pressure_entry_screen.dart';
 import '../../catheter/data/catheter_repository.dart';
 import '../../catheter/presentation/catheter_lifespan_screen.dart';
+import '../../dialysis/presentation/access_inspection_history_screen.dart';
 import '../../dialysis/presentation/hemodialysis_check_in_screen.dart';
 import '../../dialysis/presentation/hemodialysis_post_session_screen.dart';
+import '../../dialysis/presentation/peritoneal_exchange_screen.dart';
+import '../../dialysis/presentation/weight_trends_screen.dart';
 import '../../fluid/data/fluid_repository.dart';
 import '../../fluid/presentation/fluid_intake_entry_screen.dart';
 import '../../fluid/presentation/fluid_output_entry_screen.dart';
@@ -16,6 +19,7 @@ import '../../profile/presentation/profile_management_screen.dart';
 import '../../reports/presentation/modular_clinical_report_screen.dart';
 import '../../sync/presentation/offline_peer_sync_screen.dart';
 import 'condition_adaptive_grid.dart';
+import 'symptom_log_screen.dart';
 
 /// Primary dashboard screen rendering the Condition-Adaptive Grid and patient safety indicators.
 class DashboardScreen extends ConsumerWidget {
@@ -404,6 +408,47 @@ class DashboardScreen extends ConsumerWidget {
                       card.title.contains('Modular Clinical Report') ||
                       card.title.contains('Clinical Report')) {
                     _openModularClinicalReport(context);
+                  } else if (card.id == 'pd_exit_site' ||
+                      card.title.contains('Exit-Site') ||
+                      card.title.contains('Access Inspection')) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => AccessInspectionHistoryScreen(
+                          patient: patient,
+                        ),
+                      ),
+                    );
+                  } else if (card.id == 'pd_daily_weight' ||
+                      card.id == 'ckd_daily_weight' ||
+                      card.title.contains('Daily Weight') ||
+                      card.title.contains('Weight & Dry Weight')) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => WeightTrendsScreen(
+                          patient: patient,
+                        ),
+                      ),
+                    );
+                  } else if (card.id == 'pd_exchange_log' ||
+                      card.title.contains('Exchange Log') ||
+                      card.title.contains('Exchange')) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => PeritonealExchangeScreen(
+                          patient: patient,
+                        ),
+                      ),
+                    );
+                  } else if (card.id == 'ckd_symptom_log' ||
+                      card.id == 'uro_symptom_log' ||
+                      card.title.contains('Symptom Log')) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => SymptomLogScreen(
+                          patient: patient,
+                        ),
+                      ),
+                    );
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(

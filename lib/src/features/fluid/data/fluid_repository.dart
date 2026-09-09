@@ -58,6 +58,46 @@ class FluidRepository {
     return (_db.select(_db.fluidIntakeLogs)..where((tbl) => tbl.id.equals(intakeId))).getSingle();
   }
 
+  /// Updates an existing fluid intake entry and updates its updatedAt timestamp.
+  Future<FluidIntakeLog> updateFluidIntake({
+    required String id,
+    int? volumeMl,
+    String? beverageType,
+    bool? phosphateBinderTaken,
+    DateTime? recordedAt,
+  }) async {
+    final existing = await (_db.select(_db.fluidIntakeLogs)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+    if (existing == null) {
+      throw ArgumentError('Fluid intake log not found with id: $id');
+    }
+
+    if (volumeMl != null && volumeMl <= 0) {
+      throw ArgumentError('Fluid intake volume must be greater than zero.');
+    }
+
+    final now = DateTime.now().toUtc();
+    final companion = FluidIntakeLogsCompanion(
+      volumeMl: volumeMl != null ? drift.Value(volumeMl) : const drift.Value.absent(),
+      beverageType: beverageType != null ? drift.Value(beverageType) : const drift.Value.absent(),
+      phosphateBinderTaken: phosphateBinderTaken != null ? drift.Value(phosphateBinderTaken) : const drift.Value.absent(),
+      recordedAt: recordedAt != null ? drift.Value(recordedAt.toUtc()) : const drift.Value.absent(),
+      updatedAt: drift.Value(now),
+    );
+
+    await (_db.update(_db.fluidIntakeLogs)..where((tbl) => tbl.id.equals(id))).write(companion);
+    return (_db.select(_db.fluidIntakeLogs)..where((tbl) => tbl.id.equals(id))).getSingle();
+  }
+
+  /// Deletes a fluid intake entry by ID.
+  Future<int> deleteFluidIntake(String id) async {
+    return (_db.delete(_db.fluidIntakeLogs)..where((tbl) => tbl.id.equals(id))).go();
+  }
+
+  /// Deletes a fluid output entry by ID.
+  Future<int> deleteFluidOutput(String id) async {
+    return (_db.delete(_db.fluidOutputLogs)..where((tbl) => tbl.id.equals(id))).go();
+  }
+
   /// Records a fluid output / evacuation entry with UUIDv4 and updated_at metadata.
   Future<FluidOutputLog> recordFluidOutput({
     String? id,

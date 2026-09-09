@@ -196,6 +196,46 @@ class NephroTestHarness {
     return DialysisSessionRepository(database).getSessions(patientId);
   }
 
+  /// Clinical helper to record a Peritoneal Dialysis exchange.
+  Future<DialysisSession> recordPeritonealExchange({
+    String? id,
+    required String patientId,
+    required int inflowVolumeMl,
+    required int drainVolumeMl,
+    String? clarity,
+    String? notes,
+    DateTime? recordedAt,
+  }) async {
+    return DialysisSessionRepository(database).recordPeritonealExchange(
+      id: id,
+      patientId: patientId,
+      inflowVolumeMl: inflowVolumeMl,
+      drainVolumeMl: drainVolumeMl,
+      clarity: clarity,
+      notes: notes,
+      recordedAt: recordedAt,
+    );
+  }
+
+  /// Clinical helper to record clinical symptoms.
+  Future<DialysisSession> recordSymptomLog({
+    String? id,
+    required String patientId,
+    required List<String> symptoms,
+    String? notes,
+    DateTime? recordedAt,
+    String sessionType = 'symptom_log',
+  }) async {
+    return DialysisSessionRepository(database).recordSymptomLog(
+      id: id,
+      patientId: patientId,
+      symptoms: symptoms,
+      notes: notes,
+      recordedAt: recordedAt,
+      sessionType: sessionType,
+    );
+  }
+
   /// Clinical helper to query vascular access inspections for a patient ordered most recent first.
   Future<List<AccessInspection>> getAccessInspections(String patientId) async {
     return DialysisSessionRepository(database).getAccessInspections(patientId);
@@ -249,6 +289,28 @@ class NephroTestHarness {
       phosphateBinderTaken: phosphateBinderTaken,
       recordedAt: recordedAt,
     );
+  }
+
+  /// Clinical helper to update an existing Fluid Intake entry.
+  Future<FluidIntakeLog> updateFluidIntake({
+    required String id,
+    int? volumeMl,
+    String? beverageType,
+    bool? phosphateBinderTaken,
+    DateTime? recordedAt,
+  }) async {
+    return FluidRepository(database).updateFluidIntake(
+      id: id,
+      volumeMl: volumeMl,
+      beverageType: beverageType,
+      phosphateBinderTaken: phosphateBinderTaken,
+      recordedAt: recordedAt,
+    );
+  }
+
+  /// Clinical helper to delete a Fluid Intake entry.
+  Future<int> deleteFluidIntake(String id) async {
+    return FluidRepository(database).deleteFluidIntake(id);
   }
 
   /// Clinical helper to log Fluid Output.

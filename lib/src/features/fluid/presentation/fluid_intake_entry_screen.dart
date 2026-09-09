@@ -13,6 +13,15 @@ import '../domain/fluid_calculation_rules.dart';
 class FluidIntakeEntryScreen extends ConsumerStatefulWidget {
   final Patient? patient;
 
+  static const List<String> beverageOptions = [
+    'Water',
+    'Tea',
+    'Coffee',
+    'Soup / Broth',
+    'Juice',
+    'Other',
+  ];
+
   const FluidIntakeEntryScreen({
     super.key,
     this.patient,
@@ -30,15 +39,6 @@ class _FluidIntakeEntryScreenState extends ConsumerState<FluidIntakeEntryScreen>
   bool _phosphateBinderTaken = false;
   int? _selectedPreset;
   bool _isSubmitting = false;
-
-  static const List<String> _beverageOptions = [
-    'Water',
-    'Tea',
-    'Coffee',
-    'Soup / Broth',
-    'Juice',
-    'Other',
-  ];
 
   @override
   void dispose() {
@@ -274,7 +274,7 @@ class _FluidIntakeEntryScreenState extends ConsumerState<FluidIntakeEntryScreen>
                             ),
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                           ),
-                          items: _beverageOptions.map((type) {
+                          items: FluidIntakeEntryScreen.beverageOptions.map((type) {
                             return DropdownMenuItem(
                               value: type,
                               child: Text(type),
@@ -698,6 +698,40 @@ class _FluidIntakeHistoryList extends ConsumerWidget {
                         ],
                       ),
                     ),
+                    PopupMenuButton<String>(
+                      key: Key('intake_menu_${log.id}'),
+                      icon: const Icon(Icons.more_vert_rounded),
+                      tooltip: 'Intake Actions',
+                      onSelected: (action) {
+                        if (action == 'edit') {
+                          _showEditIntakeDialog(context, ref, log);
+                        } else if (action == 'delete') {
+                          _confirmDeleteIntake(context, ref, log);
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit_outlined, size: 20),
+                              SizedBox(width: 8),
+                              Text('Edit Entry'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                              SizedBox(width: 8),
+                              Text('Delete', style: TextStyle(color: Colors.red)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -707,6 +741,114 @@ class _FluidIntakeHistoryList extends ConsumerWidget {
       },
       loading: () => const Center(child: CircularProgressIndicator.adaptive()),
       error: (e, _) => Text('Error loading intake logs: $e'),
+    );
+  }
+
+  void _showEditIntakeDialog(BuildContext context, WidgetRef ref, FluidIntakeLog log) {
+    final volumeCtrl = TextEditingController(text: log.volumeMl.toString());
+    String selectedBeverage = log.beverageType;
+    bool binderTaken = log.phosphateBinderTaken;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Edit Fluid Intake'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  key: const Key('edit_intake_volume_input'),
+                  controller: volumeCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Volume (mL)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  key: const Key('edit_intake_beverage_dropdown'),
+                  initialValue: FluidIntakeEntryScreen.beverageOptions.contains(selectedBeverage)
+                      ? selectedBeverage
+                      : 'Other',
+                  decoration: const InputDecoration(
+                    labelText: 'Beverage',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: FluidIntakeEntryScreen.beverageOptions
+                      .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                      .toList(),
+                  onChanged: (val) {
+                    if (val != null) setDialogState(() => selectedBeverage = val);
+                  },
+                ),
+                const SizedBox(height: 12),
+                CheckboxListTile(
+                  key: const Key('edit_intake_binder_checkbox'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Phosphate Binder Ingested'),
+                  value: binderTaken,
+                  onChanged: (val) {
+                    setDialogState(() => binderTaken = val ?? false);
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              key: const Key('save_edit_intake_button'),
+              onPressed: () async {
+                final vol = int.tryParse(volumeCtrl.text.trim());
+                if (vol == null || vol <= 0) return;
+                await ref.read(fluidRepositoryProvider).updateFluidIntake(
+                      id: log.id,
+                      volumeMl: vol,
+                      beverageType: selectedBeverage,
+                      phosphateBinderTaken: binderTaken,
+                    );
+                if (ctx.mounted) {
+                  Navigator.of(ctx).pop();
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmDeleteIntake(BuildContext context, WidgetRef ref, FluidIntakeLog log) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Intake Entry?'),
+        content: Text('Delete ${log.volumeMl} mL (${log.beverageType})? This will update your 24-hour Fluid Balance.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            key: const Key('confirm_delete_intake_button'),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () async {
+              await ref.read(fluidRepositoryProvider).deleteFluidIntake(log.id);
+              if (ctx.mounted) {
+                Navigator.of(ctx).pop();
+              }
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
     );
   }
 }

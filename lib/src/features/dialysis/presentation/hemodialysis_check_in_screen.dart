@@ -6,6 +6,8 @@ import '../../../core/database/app_database.dart';
 import '../../profile/domain/clinical_condition.dart';
 import '../data/dialysis_session_repository.dart';
 import '../domain/hemodialysis_calculation_rules.dart';
+import 'access_inspection_history_screen.dart';
+import 'weight_trends_screen.dart';
 
 /// Hemodialysis pre-session check-in screen.
 ///
@@ -187,12 +189,29 @@ class _HemodialysisCheckInScreenState extends ConsumerState<HemodialysisCheckInS
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Icon(Icons.monitor_weight_rounded, color: theme.colorScheme.primary),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Prescribed Clinical Targets',
-                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                            Row(
+                              children: [
+                                Icon(Icons.monitor_weight_rounded, color: theme.colorScheme.primary),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Prescribed Clinical Targets',
+                                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                            TextButton.icon(
+                              key: const Key('view_weight_trends_button'),
+                              icon: const Icon(Icons.show_chart_rounded, size: 18),
+                              label: const Text('Trends'),
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => WeightTrendsScreen(patient: widget.patient),
+                                  ),
+                                );
+                              },
                             ),
                           ],
                         ),
@@ -359,9 +378,26 @@ class _HemodialysisCheckInScreenState extends ConsumerState<HemodialysisCheckInS
                 const SizedBox(height: 20),
 
                 // 4. Pre-Session Vascular Access Inspection
-                Text(
-                  'Pre-Session Vascular Access Inspection',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Pre-Session Vascular Access Inspection',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    TextButton.icon(
+                      key: const Key('view_access_history_button'),
+                      icon: const Icon(Icons.history_rounded, size: 18),
+                      label: const Text('History'),
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => AccessInspectionHistoryScreen(patient: widget.patient),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 Text(

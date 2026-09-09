@@ -188,5 +188,54 @@ void main() {
       expect(updatedOutput.totalOutputMl, equals(100));
       expect(updatedOutput.netBalanceMl, equals(150));
     });
+
+    test('updateFluidIntake modifies intake entry and recalculates 24-hour Fluid Balance', () async {
+      final now = DateTime.now().toUtc();
+      final intake = await fluidRepo.recordFluidIntake(
+        patientId: testPatient.id,
+        volumeMl: 500,
+        beverageType: 'Water',
+        recordedAt: now,
+      );
+
+      var balance = await fluidRepo.get24HourFluidBalance(testPatient.id, asOf: now);
+      expect(balance.totalIntakeMl, equals(500));
+
+      final updated = await fluidRepo.updateFluidIntake(
+        id: intake.id,
+        volumeMl: 250,
+        beverageType: 'Tea',
+        phosphateBinderTaken: true,
+      );
+
+      expect(updated.id, equals(intake.id));
+      expect(updated.volumeMl, equals(250));
+      expect(updated.beverageType, equals('Tea'));
+      expect(updated.phosphateBinderTaken, isTrue);
+
+      balance = await fluidRepo.get24HourFluidBalance(testPatient.id, asOf: now);
+      expect(balance.totalIntakeMl, equals(250));
+    });
+
+    test('deleteFluidIntake removes intake entry and restores 24-hour Fluid Balance', () async {
+      final now = DateTime.now().toUtc();
+      final intake = await fluidRepo.recordFluidIntake(
+        patientId: testPatient.id,
+        volumeMl: 350,
+        beverageType: 'Juice',
+        recordedAt: now,
+      );
+
+      var balance = await fluidRepo.get24HourFluidBalance(testPatient.id, asOf: now);
+      expect(balance.totalIntakeMl, equals(350));
+
+      await fluidRepo.deleteFluidIntake(intake.id);
+
+      final logs = await fluidRepo.getFluidIntakeLogs(testPatient.id);
+      expect(logs.any((l) => l.id == intake.id), isFalse);
+
+      balance = await fluidRepo.get24HourFluidBalance(testPatient.id, asOf: now);
+      expect(balance.totalIntakeMl, equals(0));
+    });
   });
 }

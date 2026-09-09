@@ -4,8 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nephrocare/main.dart';
 import 'package:nephrocare/src/core/database/database_provider.dart';
 import 'package:nephrocare/src/core/testing/test_harness.dart';
+import 'package:nephrocare/src/features/dashboard/presentation/dashboard_screen.dart';
+import 'package:nephrocare/src/features/dashboard/presentation/symptom_log_screen.dart';
+import 'package:nephrocare/src/features/dialysis/presentation/access_inspection_history_screen.dart';
 import 'package:nephrocare/src/features/dialysis/presentation/hemodialysis_check_in_screen.dart';
 import 'package:nephrocare/src/features/dialysis/presentation/hemodialysis_post_session_screen.dart';
+import 'package:nephrocare/src/features/dialysis/presentation/peritoneal_exchange_screen.dart';
+import 'package:nephrocare/src/features/dialysis/presentation/weight_trends_screen.dart';
 import 'package:nephrocare/src/features/profile/domain/clinical_condition.dart';
 
 void main() {
@@ -246,6 +251,272 @@ void main() {
 
         expect(find.text('Post-Dialysis Session Log'), findsOneWidget);
         expect(find.byKey(const Key('post_weight_input')), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'Access inspection screen renders history, allows new evaluation, and updates longitudinal timeline',
+      (WidgetTester tester) async {
+        final patient = await harness.createPatient(
+          name: 'Dana Scully',
+          diagnosis: ClinicalCondition.hemodialysis.name,
+          prescribedDryWeightKg: 62.0,
+          vascularAccessType: VascularAccessType.arteriovenousFistula.name,
+          fistulaArmLocation: AccessLocation.leftArm.name,
+        );
+
+        // Seed an initial inspection
+        await harness.recordAccessInspection(
+          patientId: patient.id,
+          accessType: 'arteriovenousFistula',
+          anatomicalLocation: 'leftArm',
+          thrillPresent: true,
+          bruitPresent: true,
+          notes: 'Baseline healthy fistula',
+          recordedAt: DateTime.now().subtract(const Duration(days: 1)),
+        );
+
+        await tester.pumpWidget(
+          createTestApp(
+            home: AccessInspectionHistoryScreen(patient: patient),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // 1. Verify screen headers and designated access info
+        expect(find.text('Vascular & Exit-Site Inspection'), findsOneWidget);
+        expect(find.text('Designated Access Information'), findsOneWidget);
+        expect(find.text('Longitudinal Inspection Timeline'), findsOneWidget);
+
+        // 2. Verify previous inspection in the timeline
+        expect(find.text('Notes: Baseline healthy fistula'), findsOneWidget);
+        expect(find.text('Thrill +'), findsOneWidget);
+        expect(find.text('Nominal'), findsOneWidget);
+
+        // 3. Record a new inspection with missing thrill (alert condition)
+        final thrillBox = find.byKey(const Key('inspection_thrill_checkbox'));
+        expect(thrillBox, findsOneWidget);
+        // Leave thrill false, set bruit true
+        final bruitBox = find.byKey(const Key('inspection_bruit_checkbox'));
+        await tester.ensureVisible(bruitBox);
+        await tester.tap(bruitBox);
+        await tester.pumpAndSettle();
+
+        // Verify alert banner appears
+        expect(find.byKey(const Key('inspection_warning_banner')), findsOneWidget);
+        expect(find.textContaining('Absent thrill detected in vascular fistula/graft'), findsOneWidget);
+
+        // Enter notes
+        final notesInput = find.byKey(const Key('inspection_notes_input'));
+        await tester.enterText(notesInput, 'Urgent: weak pulse, thrill not palpable');
+        await tester.pumpAndSettle();
+
+        // Submit inspection
+        final saveBtn = find.byKey(const Key('save_inspection_button'));
+        await tester.ensureVisible(saveBtn);
+        await tester.tap(saveBtn);
+        await tester.pumpAndSettle();
+
+        // 4. Verify confirmation and updated timeline
+        expect(find.text('Access inspection recorded successfully.'), findsOneWidget);
+        expect(find.text('Notes: Urgent: weak pulse, thrill not palpable'), findsOneWidget);
+        expect(find.text('Attention Required'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'Weight trends screen displays longitudinal comparison against Prescribed Dry Weight and allows daily weight logging',
+      (WidgetTester tester) async {
+        final patient = await harness.createPatient(
+          name: 'Walter Skinner',
+          diagnosis: ClinicalCondition.hemodialysis.name,
+          prescribedDryWeightKg: 75.0,
+          vascularAccessType: VascularAccessType.arteriovenousFistula.name,
+          fistulaArmLocation: AccessLocation.leftArm.name,
+        );
+
+        // Seed a past dialysis session with pre-weight, post-weight
+        final session = await harness.recordPreDialysisCheckIn(
+          patientId: patient.id,
+          preWeightKg: 77.8,
+          volumeAllowanceMl: 200,
+          startedAt: DateTime.now().subtract(const Duration(days: 2)),
+        );
+        await harness.recordPostDialysisSession(
+          sessionId: session.id,
+          postWeightKg: 75.2,
+          actualFluidRemovedMl: 2600,
+          endedAt: DateTime.now().subtract(const Duration(days: 2, hours: -4)),
+        );
+
+        await tester.pumpWidget(
+          createTestApp(
+            home: WeightTrendsScreen(patient: patient),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // 1. Verify header and Prescribed Dry Weight
+        expect(find.text('Weight Tracking & Trends'), findsOneWidget);
+        expect(find.text('75.0 kg'), findsWidgets);
+
+        // 2. Verify seeded session in the longitudinal comparison list
+        expect(find.text('77.8 kg'), findsOneWidget); // Pre-Dialysis
+        expect(find.text('75.2 kg'), findsOneWidget); // Post-Dialysis
+        expect(find.textContaining('Gain (IDWG): +2.80 kg'), findsOneWidget);
+        expect(find.textContaining('Variance: +0.20 kg'), findsOneWidget);
+        expect(find.textContaining('Fluid Removed: 2600 mL'), findsOneWidget);
+
+        // 3. Log a new daily weight
+        final weightInput = find.byKey(const Key('daily_weight_input'));
+        await tester.enterText(weightInput, '76.1');
+
+        final notesInput = find.byKey(const Key('daily_weight_notes_input'));
+        await tester.enterText(notesInput, 'Morning weight check');
+
+        final saveBtn = find.byKey(const Key('save_weight_button'));
+        await tester.ensureVisible(saveBtn);
+        await tester.tap(saveBtn);
+        await tester.pumpAndSettle();
+
+        // Verify confirmation
+        expect(find.text('Weight logged: 76.1 kg.'), findsOneWidget);
+
+        // 4. Verify new entry in the longitudinal list
+        expect(find.text('76.1 kg'), findsOneWidget);
+        expect(find.text('Daily Weight'), findsOneWidget);
+        expect(find.text('Notes: Morning weight check'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'PeritonealExchangeScreen captures inflow/drain, calculates net UF, warns on cloudy effluent, and persists',
+      (WidgetTester tester) async {
+        final patient = await harness.createPatient(
+          name: 'PD UI Patient',
+          diagnosis: 'peritonealDialysis',
+          prescribedDryWeightKg: 68.0,
+          dailyFluidAllowanceMl: 1200,
+        );
+
+        await tester.pumpWidget(
+          createTestApp(
+            home: PeritonealExchangeScreen(patient: patient),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // 1. Verify header and initial form
+        expect(find.text('Peritoneal Dialysis Exchange'), findsOneWidget);
+        expect(find.text('Record New Exchange'), findsOneWidget);
+
+        // 2. Enter Drain volume (Inflow defaults to 2000 mL)
+        final drainInput = find.byKey(const Key('drain_volume_field'));
+        await tester.enterText(drainInput, '2350');
+        await tester.pumpAndSettle();
+
+        // 3. Verify net UF indicator
+        expect(find.textContaining('Net Peritoneal Ultrafiltration: +350 mL'), findsOneWidget);
+
+        // 4. Test cloudy effluent peritonitis warning alert
+        final clarityDropdown = find.byKey(const Key('pd_clarity_dropdown'));
+        await tester.ensureVisible(clarityDropdown);
+        await tester.tap(clarityDropdown);
+        await tester.pumpAndSettle();
+        final cloudyOption = find.text('Cloudy (Possible Peritonitis)').last;
+        await tester.tap(cloudyOption);
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('Cloudy effluent is a critical sign of Peritonitis'), findsOneWidget);
+
+        // 5. Submit exchange
+        final saveBtn = find.byKey(const Key('save_pd_exchange_button'));
+        await tester.ensureVisible(saveBtn);
+        await tester.tap(saveBtn);
+        await tester.pumpAndSettle();
+
+        // Verify confirmation snackbar
+        expect(find.text('Peritoneal exchange recorded successfully!'), findsOneWidget);
+
+        // 6. Verify entry in timeline
+        expect(find.text('+350 mL UF'), findsWidgets);
+        expect(find.textContaining('Inflow: 2000 mL'), findsOneWidget);
+        expect(find.textContaining('Drain: 2350 mL'), findsOneWidget);
+        expect(find.textContaining('Net UF: +350 mL'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'SymptomLogScreen selects symptoms, displays critical alert, and persists to surveillance timeline',
+      (WidgetTester tester) async {
+        final patient = await harness.createPatient(
+          name: 'CKD Symptom Patient',
+          diagnosis: 'nonDialysisCkd',
+        );
+
+        await tester.pumpWidget(
+          createTestApp(
+            home: SymptomLogScreen(patient: patient),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('CKD Symptom Log'), findsOneWidget);
+
+        // Select Fatigue and Shortness of Breath (triggers critical alert)
+        final fatigueChip = find.text('Fatigue / Exhaustion');
+        await tester.tap(fatigueChip);
+        await tester.pumpAndSettle();
+
+        final sobChip = find.text('Shortness of Breath');
+        await tester.tap(sobChip);
+        await tester.pumpAndSettle();
+
+        // Verify critical alert banner appeared
+        expect(find.textContaining('Red Flag Symptom: Severe shortness of breath'), findsOneWidget);
+
+        // Add note
+        final notesInput = find.byKey(const Key('symptom_notes_field'));
+        await tester.enterText(notesInput, 'Mild dyspnea when walking uphill');
+
+        // Submit symptoms
+        final saveBtn = find.byKey(const Key('save_symptom_log_button'));
+        await tester.ensureVisible(saveBtn);
+        await tester.tap(saveBtn);
+        await tester.pumpAndSettle();
+
+        // Verify confirmation snackbar
+        expect(find.text('Symptoms recorded successfully!'), findsOneWidget);
+
+        // Verify entry in timeline
+        expect(find.text('Notes: Mild dyspnea when walking uphill'), findsOneWidget);
+        expect(find.text('Fatigue / Exhaustion'), findsWidgets);
+        expect(find.text('Shortness of Breath'), findsWidgets);
+      },
+    );
+
+    testWidgets(
+      'DashboardScreen navigates to PeritonealExchangeScreen and SymptomLogScreen from condition cards',
+      (WidgetTester tester) async {
+        final pdPatient = await harness.createPatient(
+          name: 'PD Nav Patient',
+          diagnosis: 'peritonealDialysis',
+        );
+
+        await tester.pumpWidget(
+          createTestApp(
+            home: DashboardScreen(patient: pdPatient),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Tap Exchange Log card
+        final exchangeCard = find.text('Exchange Log');
+        await tester.ensureVisible(exchangeCard);
+        await tester.tap(exchangeCard);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(PeritonealExchangeScreen), findsOneWidget);
       },
     );
   });

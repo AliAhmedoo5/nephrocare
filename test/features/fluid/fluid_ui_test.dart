@@ -147,5 +147,59 @@ void main() {
       expect(balance.totalOutputMl, equals(200));
       expect(balance.netBalanceMl, equals(600));
     });
+
+    testWidgets('Fluid intake screen allows editing and deleting existing logs with balance recalculation', (tester) async {
+      final now = DateTime.now().toUtc();
+      final log = await harness.recordFluidIntake(
+        patientId: patient.id,
+        volumeMl: 500,
+        beverageType: 'Water',
+        phosphateBinderTaken: false,
+        recordedAt: now,
+      );
+
+      await tester.pumpWidget(createTestableWidget(FluidIntakeEntryScreen(patient: patient)));
+      await tester.pumpAndSettle();
+
+      // Verify the log's action menu is displayed
+      final menuButton = find.byKey(Key('intake_menu_${log.id}'));
+      expect(menuButton, findsOneWidget);
+      await tester.ensureVisible(menuButton);
+      await tester.tap(menuButton);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Edit Entry'));
+      await tester.pumpAndSettle();
+
+      // Edit volume to 250
+      final editInput = find.byKey(const Key('edit_intake_volume_input'));
+      await tester.enterText(editInput, '250');
+      await tester.pumpAndSettle();
+
+      final saveEditButton = find.byKey(const Key('save_edit_intake_button'));
+      await tester.tap(saveEditButton);
+      await tester.pumpAndSettle();
+
+      // Verify updated volume
+      expect(find.text('250 mL'), findsWidgets);
+      var balance = await harness.get24HourFluidBalance(patient.id);
+      expect(balance.totalIntakeMl, equals(250));
+
+      // Now delete the entry
+      await tester.tap(menuButton);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
+      final confirmDelete = find.byKey(const Key('confirm_delete_intake_button'));
+      await tester.tap(confirmDelete);
+      await tester.pumpAndSettle();
+
+      // Verify log removed and balance reset
+      expect(find.text('No fluid intake recorded yet.'), findsOneWidget);
+      balance = await harness.get24HourFluidBalance(patient.id);
+      expect(balance.totalIntakeMl, equals(0));
+    });
   });
 }
